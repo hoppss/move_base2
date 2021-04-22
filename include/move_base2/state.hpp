@@ -11,4 +11,5 @@ enum NavState
   PLANNING = 0,
   CONTROLLING,
   EXCEPTION,
+  STOPPING,
 };

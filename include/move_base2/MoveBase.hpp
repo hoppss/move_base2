@@ -50,7 +50,7 @@ public:
 
 protected:
   // service server
-  rclcpp::Service<move_base2::srv::NavigateToPose>::SharedPtr service_;
+  rclcpp::Service<move_base2::srv::NavigateToPose>::SharedPtr service_handle_;
 
   void handleService(const std::shared_ptr<move_base2::srv::NavigateToPose::Request> request,
                      std::shared_ptr<move_base2::srv::NavigateToPose::Response> response);

@@ -129,7 +129,7 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
 
   // Create the action servers for path planning to a pose and through poses
-  service_ = this->create_service<move_base2::srv::NavigateToPose>(
+  service_handle_ = this->create_service<move_base2::srv::NavigateToPose>(
       "/NaviTo", std::bind(&MoveBase::handleService, this, std::placeholders::_1, std::placeholders::_2));
 
   return nav2_util::CallbackReturn::SUCCESS;
@@ -209,7 +209,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
     return;
   }
   RCLCPP_INFO(get_logger(), "2. makeplan");
-  geometry_msgs::msg::PoseStamped goal = request->pose;
+  geometry_msgs::msg::PoseStamped goal = request->goal;
   nav_msgs::msg::Path path = getPlan(start, goal, request->planner_id);
 
   if (path.poses.size() == 0)

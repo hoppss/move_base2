@@ -23,10 +23,10 @@ int main(int argc, char** argv)
   request->is_cancel = false;
   request->mode = move_base2::srv::NavigateToPose::Request::NAVI_MODE;
   request->planner_id = "GridBased";
-  request->pose.header.frame_id = "map";
-  request->pose.pose.position.x = 1.5;
-  request->pose.pose.position.y = 0.5;
-  request->pose.pose.orientation.w = 1.0;
+  request->goal.header.frame_id = "map";
+  request->goal.pose.position.x = 1.5;
+  request->goal.pose.position.y = 0.5;
+  request->goal.pose.orientation.w = 1.0;
 
   while (!client->wait_for_service(1s))
   {
