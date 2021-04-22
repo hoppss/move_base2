@@ -92,7 +92,7 @@ rosidl_target_interfaces(move_base_node ${PROJECT_NAME} "rosidl_typesupport_cpp"
 
 
 #lifecycle_client
-add_executable(lifecycle_client src/lifecycle_client)
+add_executable(lifecycle_client src/lifecycle_client.cpp)
 target_include_directories(lifecycle_client PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -101,10 +101,20 @@ ament_target_dependencies(lifecycle_client ${dependencies})
 target_compile_definitions(lifecycle_client PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS") # prevent pluginlib from using boost
 
 
+## srv client
+add_executable(navi_to_client src/navi_to_client.cpp)
+target_include_directories(navi_to_client PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+ament_target_dependencies(navi_to_client ${dependencies})
+target_compile_definitions(navi_to_client PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS") # prevent pluginlib from using boost
+rosidl_target_interfaces(navi_to_client ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
+
 ## install
 
 
-install(TARGETS move_base_node lifecycle_client
+install(TARGETS move_base_node lifecycle_client navi_to_client
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -125,6 +125,9 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
     max_planner_duration_ = 0.0;
   }
 
+  // Create global path publisher
+  plan_publisher_ = create_publisher<nav_msgs::msg::Path>("plan", 1);
+
   // Create the action servers for path planning to a pose and through poses
   service_ = this->create_service<move_base2::srv::NavigateToPose>(
       "/NaviTo", std::bind(&MoveBase::handleService, this, std::placeholders::_1, std::placeholders::_2));
@@ -137,6 +140,7 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
   RCLCPP_INFO(get_logger(), "Activating");
 
   global_costmap_ros_->on_activate(state);
+  plan_publisher_->on_activate();
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it)
@@ -152,6 +156,7 @@ nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State&
   RCLCPP_INFO(get_logger(), "Deactivating");
 
   global_costmap_ros_->on_deactivate(state);
+  plan_publisher_->on_deactivate();
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it)
@@ -165,6 +170,8 @@ nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State&
 nav2_util::CallbackReturn MoveBase::on_cleanup(const rclcpp_lifecycle::State& state)
 {
   RCLCPP_INFO(get_logger(), "Cleaning up");
+
+  plan_publisher_.reset();
 
   tf_.reset();
   global_costmap_ros_->on_cleanup(state);
@@ -190,8 +197,82 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
                              std::shared_ptr<move_base2::srv::NavigateToPose::Response> response)
 {
   //
-  (void)request;
-  (void)response;
+  RCLCPP_INFO(get_logger(), "move_base2_service callback");
+
+  RCLCPP_INFO(get_logger(), "1. getcurrentpose");
+
+  geometry_msgs::msg::PoseStamped start;
+  if (!global_costmap_ros_->getRobotPose(start))
+  {
+    RCLCPP_ERROR(get_logger(), "1. getcurrentpose failed");
+    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    return;
+  }
+  RCLCPP_INFO(get_logger(), "2. makeplan");
+  geometry_msgs::msg::PoseStamped goal = request->pose;
+  nav_msgs::msg::Path path = getPlan(start, goal, request->planner_id);
+
+  if (path.poses.size() == 0)
+  {
+    RCLCPP_WARN(get_logger(),
+                "Planning algorithm %s failed to generate a valid"
+                " path to (%.2f, %.2f)",
+                request->planner_id.c_str(), goal.pose.position.x, goal.pose.position.y);
+    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    return;
+  }
+
+  RCLCPP_INFO(get_logger(), "Found valid path of size %lu to (%.2f, %.2f)", path.poses.size(), goal.pose.position.x,
+              goal.pose.position.y);
+
+  // Publish the plan for visualization purposes
+  RCLCPP_INFO(get_logger(), "3. publish path");
+
+  publishPlan(path);
+}
+
+nav_msgs::msg::Path MoveBase::getPlan(const geometry_msgs::msg::PoseStamped& start,
+                                      const geometry_msgs::msg::PoseStamped& goal, const std::string& planner_id)
+{
+  RCLCPP_INFO(get_logger(),
+              "Attempting to a find path from (%.2f, %.2f) to "
+              "(%.2f, %.2f).",
+              start.pose.position.x, start.pose.position.y, goal.pose.position.x, goal.pose.position.y);
+
+  if (planners_.find(planner_id) != planners_.end())
+  {
+    return planners_[planner_id]->createPlan(start, goal);
+  }
+  else
+  {
+    if (planners_.size() == 1 && planner_id.empty())
+    {
+      RCLCPP_WARN_ONCE(get_logger(),
+                       "No planners specified in action call. "
+                       "Server will use only plugin %s in server."
+                       " This warning will appear once.",
+                       planner_ids_concat_.c_str());
+      return planners_[planners_.begin()->first]->createPlan(start, goal);
+    }
+    else
+    {
+      RCLCPP_ERROR(get_logger(),
+                   "planner %s is not a valid planner. "
+                   "Planner names are: %s",
+                   planner_id.c_str(), planner_ids_concat_.c_str());
+    }
+  }
+
+  return nav_msgs::msg::Path();
+}
+
+void MoveBase::publishPlan(const nav_msgs::msg::Path& path)
+{
+  auto msg = std::make_unique<nav_msgs::msg::Path>(path);
+  if (plan_publisher_->is_activated() /*&& plan_publisher_->get_subscription_count() > 0*/)
+  {
+    plan_publisher_->publish(std::move(msg));
+  }
 }
 
 }  // namespace move_base

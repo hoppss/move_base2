@@ -94,6 +94,9 @@ protected:
   std::vector<std::string> planner_ids_;
   std::vector<std::string> planner_types_;
 
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
+  void publishPlan(const nav_msgs::msg::Path& path);
+
   double max_planner_duration_;
   std::string planner_ids_concat_;
 
