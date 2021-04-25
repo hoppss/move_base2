@@ -23,10 +23,14 @@ namespace move_base
 MoveBase::MoveBase()
   : rclcpp_lifecycle::LifecycleNode("move_base_node")
 
+  , state_(NavState::UNACTIVE)
+
   , gp_loader_("nav2_core", "nav2_core::GlobalPlanner")
   , default_planner_ids_{ "GridBased" }
   , default_planner_types_{ "nav2_navfn_planner/NavfnPlanner" }
   , global_costmap_(nullptr)
+  , new_global_plan_(false)
+  , run_planner_(false)
 
   , progress_checker_loader_("nav2_core", "nav2_core::ProgressChecker")
   , default_progress_checker_id_{ "progress_checker" }
@@ -74,6 +78,8 @@ MoveBase::MoveBase()
   // Launch a thread to run the costmap node, it's singleThreadExecutor
   global_costmap_thread_ = std::make_unique<nav2_util::NodeThread>(global_costmap_ros_);
 
+  plan_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::planThread, this));
+
   // Setup controller + local_costmap
   RCLCPP_INFO(get_logger(), "Creating Controller");
   for (size_t i = 0; i < default_controller_ids_.size(); ++i)
@@ -83,7 +89,7 @@ MoveBase::MoveBase()
                 default_controller_types_[i].c_str());  // dwb_core::DWBLocalPlanner
   }
 
-  declare_parameter("controller_frequency", 20.0);
+  declare_parameter("controller_frequency", 10.0);
 
   declare_parameter("progress_checker_plugin", default_progress_checker_id_);
   declare_parameter("goal_checker_plugin", default_goal_checker_id_);
@@ -99,6 +105,57 @@ MoveBase::MoveBase()
 
   // Launch a thread to run the costmap node
   controller_costmap_thread_ = std::make_unique<nav2_util::NodeThread>(controller_costmap_ros_);
+
+  spin_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::spinThread, this));
+}  // construnctor
+
+void MoveBase::loop()
+{
+  // main cycle
+  while (rclcpp::ok())
+  {
+    switch (state_)
+    {
+      case UNACTIVE: {
+        RCLCPP_INFO(get_logger(), "unactive cycle.....");
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      break;
+
+      case READY: {
+        RCLCPP_INFO(get_logger(), "ready cycle.....");
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      break;
+
+      case PLANNING: {
+        rclcpp::Time t = now();
+
+        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
+        {
+          run_planner_ = true;
+          planner_cond_.notify_one();
+          last_nofity_plan_time_ = now();
+        }
+      }
+      break;
+
+      case CONTROLLING: {
+        //
+        RCLCPP_INFO(get_logger(), "control cycle.....");
+        computeControl();
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      break;
+
+      case EXCEPTION: {
+      }
+      break;
+
+      default:
+        break;
+    }  // switch
+  }    // while
 }
 
 MoveBase::~MoveBase()
@@ -106,6 +163,11 @@ MoveBase::~MoveBase()
   RCLCPP_INFO(get_logger(), "Destroying");
   planners_.clear();
   global_costmap_thread_.reset();
+
+  if (plan_thread_)
+  {
+    plan_thread_->join();
+  }
 }
 
 nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& state)
@@ -116,12 +178,14 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   global_costmap_ros_->on_configure(state);
   global_costmap_ = global_costmap_ros_->getCostmap();
 
-  RCLCPP_DEBUG(get_logger(), "Costmap size: %d,%d", global_costmap_->getSizeInCellsX(),
-               global_costmap_->getSizeInCellsY());
+  RCLCPP_INFO(get_logger(), "Costmap size: %d,%d", global_costmap_->getSizeInCellsX(),
+              global_costmap_->getSizeInCellsY());
 
   tf_ = global_costmap_ros_->getTfBuffer();
 
   planner_types_.resize(planner_ids_.size());
+
+  RCLCPP_INFO(get_logger(), "?????");
 
   auto node = shared_from_this();
 
@@ -289,6 +353,8 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
   }
   vel_publisher_->on_activate();
 
+  state_ = READY;
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -363,38 +429,58 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
                              std::shared_ptr<move_base2::srv::NavigateToPose::Response> response)
 {
   //
-  RCLCPP_INFO(get_logger(), "move_base2_service callback");
+  RCLCPP_INFO(get_logger(), "NaviTo: planner [%s] controller [%s], pose [%f, %f]", request->planner_id.c_str(),
+              request->controller_id.c_str(), request->goal.pose.position.x, request->goal.pose.position.y);
 
-  RCLCPP_INFO(get_logger(), "1. getcurrentpose");
+  RCLCPP_INFO(get_logger(), "NaviTo: goals_queue size %d", goals_queue_.size());
 
-  geometry_msgs::msg::PoseStamped start;
-  if (!global_costmap_ros_->getRobotPose(start))
+  if (state_ == NavState::UNACTIVE)
   {
-    RCLCPP_ERROR(get_logger(), "1. getcurrentpose failed");
+    RCLCPP_WARN(get_logger(), "NaviTo: unactive, please active lifecycle");
     response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
-    return;
-  }
-  RCLCPP_INFO(get_logger(), "2. makeplan");
-  geometry_msgs::msg::PoseStamped goal = request->goal;
-  nav_msgs::msg::Path path = getPlan(start, goal, request->planner_id);
-
-  if (path.poses.size() == 0)
-  {
-    RCLCPP_WARN(get_logger(),
-                "Planning algorithm %s failed to generate a valid"
-                " path to (%.2f, %.2f)",
-                request->planner_id.c_str(), goal.pose.position.x, goal.pose.position.y);
-    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    response->description = "request rejected, lifecycle fsm is not active";
     return;
   }
 
-  RCLCPP_INFO(get_logger(), "Found valid path of size %lu to (%.2f, %.2f)", path.poses.size(), goal.pose.position.x,
-              goal.pose.position.y);
+  {
+    std::unique_lock<std::mutex> lock(planner_mutex_);
+    current_request_.planner_id = request->planner_id;
+    current_request_.controller_id = request->controller_id;
+    current_request_.goal = request->goal;
 
-  // Publish the plan for visualization purposes
-  RCLCPP_INFO(get_logger(), "3. publish path");
+    goals_queue_.push(current_request_);
+  }
 
-  publishPlan(path);
+  std::string c_name = current_request_.controller_id;
+  std::string current_controller;
+  if (findControllerId(c_name, current_controller))
+  {
+    current_controller_ = current_controller;
+  }
+  else
+  {
+    resetState();
+    RCLCPP_ERROR(get_logger(), "NaviTo: failed to find controller-id");
+    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    response->description = "request rejected, error controller_id";
+    return;
+  }
+
+  if (state_ == NavState::READY)
+  {
+    state_ = PLANNING;
+    last_valid_plan_time_ = now();
+    last_valid_control_time_ = now();
+
+    progress_checker_->reset();
+  }
+
+  last_nofity_plan_time_ = now();
+  run_planner_ = true;
+  planner_cond_.notify_one();
+
+  response->result = move_base2::srv::NavigateToPose::Response::SUCCESS;
+  response->description = "request received";
 }
 
 nav_msgs::msg::Path MoveBase::getPlan(const geometry_msgs::msg::PoseStamped& start,
@@ -475,73 +561,98 @@ bool MoveBase::findControllerId(const std::string& c_name, std::string& current_
 
 void MoveBase::computeControl()
 {
-  RCLCPP_INFO(get_logger(), "Received a goal, begin computing control effort.");
+  RCLCPP_INFO(get_logger(), "controller: Received a goal, begin computing control effort.");
+
+  auto start = std::chrono::system_clock::now();
+  RCLCPP_INFO(get_logger(), "controller: 1");
 
   try
   {
-    // setPlannerPath(last_valid_plan_);
-    progress_checker_->reset();
+    // check whether or not update global plan
+    nav_msgs::msg::Path temp_path;
+    bool need_update_goal_checker = false;
+    RCLCPP_INFO(get_logger(), "controller: 2");
 
-    rclcpp::WallRate loop_rate(controller_frequency_);
-    while (rclcpp::ok())
     {
-      if (1)
+      std::unique_lock<std::mutex> lock(planner_mutex_);
+      RCLCPP_INFO(get_logger(), "controller: 3");
+
+      if (new_global_plan_)
       {
-        RCLCPP_INFO(get_logger(), "Goal was canceled. Stopping the robot.");
-        // action_server_->terminate_all();
-        publishZeroVelocity();
-        return;
+        RCLCPP_INFO(get_logger(), "controller: 4");
+
+        temp_path = last_global_plan_;
+        new_global_plan_ = false;
+        need_update_goal_checker = true;
       }
+    }
 
-      // updateGlobalPath();
+    // update global_path/end_pose/goal_checker, if new global plan
+    if (need_update_goal_checker)
+    {
+      RCLCPP_INFO(get_logger(), "controller: 5");
 
-      computeAndPublishVelocity();
+      controllers_[current_controller_]->setPlan(temp_path);
+      RCLCPP_INFO(get_logger(), "controller: 6");
 
-      if (isGoalReached())
-      {
-        RCLCPP_INFO(get_logger(), "Reached the goal!");
-        break;
-      }
+      auto end_pose = temp_path.poses.back();
+      end_pose.header.frame_id = temp_path.header.frame_id;
+      rclcpp::Duration tolerance(1e9);
+      nav_2d_utils::transformPose(tf_, controller_costmap_ros_->getGlobalFrameID(), end_pose, end_pose, tolerance);
+      goal_checker_->reset();
 
-      if (!loop_rate.sleep())
-      {
-        RCLCPP_WARN(get_logger(), "Control loop missed its desired rate of %.4fHz", controller_frequency_);
-      }
+      RCLCPP_INFO(get_logger(), "Path end point is (%.2f, %.2f)", end_pose.pose.position.x, end_pose.pose.position.y);
+      end_pose_ = end_pose.pose;
+    }
+
+    // get current pose
+    geometry_msgs::msg::PoseStamped pose;
+
+    if (!getRobotPose(pose))
+    {
+      throw nav2_core::PlannerException("controller: Failed to obtain robot pose");
+    }
+
+    // update progress_checker
+    if (!progress_checker_->check(pose))
+    {
+      throw nav2_core::PlannerException("controller: Failed to make progress");
+    }
+
+    // check goal_checker
+    if (isGoalReached())
+    {
+      RCLCPP_INFO(get_logger(), "controller: Reached the goal!");
+      state_ = NavState::READY;
+      publishZeroVelocity();
+      return;
+    }
+
+    // get Twist
+    nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
+    auto cmd_vel_2d =
+        controllers_[current_controller_]->computeVelocityCommands(pose, nav_2d_utils::twist2Dto3D(twist));
+
+    RCLCPP_INFO(get_logger(), "Publishing velocity at time %.2f", now().seconds());
+    publishVelocity(cmd_vel_2d);
+
+    auto end = std::chrono::system_clock::now();
+    auto cost = std::chrono::duration_cast<std::chrono::seconds>(end - start);  // s
+    double time_used = cost.count();
+    if (time_used > 1.0 / controller_frequency_)
+    {
+      RCLCPP_WARN(get_logger(), "Control loop missed its desired rate of %.4fHz, time_cost %f", controller_frequency_,
+                  cost.count());
     }
   }
   catch (nav2_core::PlannerException& e)
   {
     RCLCPP_ERROR(this->get_logger(), e.what());
     publishZeroVelocity();
-    // action_server_->terminate_current();
-    return;
+    state_ = NavState::PLANNING;
   }
 
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
-
-  publishZeroVelocity();
-
-  // TODO(orduno) #861 Handle a pending preemption and set controller name
-  // action_server_->succeeded_current();
-}
-
-void MoveBase::setPlannerPath(const nav_msgs::msg::Path& path)
-{
-  RCLCPP_INFO(get_logger(), "Providing path to the controller %s", current_controller_.c_str());
-  if (path.poses.empty())
-  {
-    throw nav2_core::PlannerException("Invalid path, Path is empty.");
-  }
-  controllers_[current_controller_]->setPlan(path);
-
-  auto end_pose = path.poses.back();
-  end_pose.header.frame_id = path.header.frame_id;
-  rclcpp::Duration tolerance(1e9);
-  nav_2d_utils::transformPose(tf_, controller_costmap_ros_->getGlobalFrameID(), end_pose, end_pose, tolerance);
-  goal_checker_->reset();
-
-  RCLCPP_DEBUG(get_logger(), "Path end point is (%.2f, %.2f)", end_pose.pose.position.x, end_pose.pose.position.y);
-  end_pose_ = end_pose.pose;
 }
 
 void MoveBase::computeAndPublishVelocity()
@@ -569,13 +680,6 @@ void MoveBase::computeAndPublishVelocity()
 
   RCLCPP_DEBUG(get_logger(), "Publishing velocity at time %.2f", now().seconds());
   publishVelocity(cmd_vel_2d);
-}
-
-void MoveBase::updateGlobalPath(const nav_msgs::msg::Path& path)
-{
-  RCLCPP_INFO(get_logger(), "Passing new path to controller.");
-
-  setPlannerPath(path);
 }
 
 void MoveBase::publishVelocity(const geometry_msgs::msg::TwistStamped& velocity)
@@ -624,6 +728,100 @@ bool MoveBase::getRobotPose(geometry_msgs::msg::PoseStamped& pose)
   }
   pose = current_pose;
   return true;
+}
+
+void MoveBase::planThread()
+{
+  RCLCPP_INFO(get_logger(), "planThread init");
+
+  while (rclcpp::ok())
+  {
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    RCLCPP_INFO(get_logger(), "planThread ->");
+
+    // wait 阻塞，释放锁
+    // notify 解除阻塞，加锁
+    std::unique_lock<std::mutex> lock(planner_mutex_);
+    planner_cond_.wait(lock, [this]() { return run_planner_; });
+
+    lock.unlock();
+
+    run_planner_ = false;
+
+    RCLCPP_INFO(get_logger(), "planner_thread: getcurrentpose");
+
+    geometry_msgs::msg::PoseStamped start;
+    if (!global_costmap_ros_->getRobotPose(start))
+    {
+      RCLCPP_ERROR(get_logger(), "planner_thread: getcurrentpose failed");
+      continue;
+    }
+    RCLCPP_INFO(get_logger(), "planner_thread: makeplan");
+    geometry_msgs::msg::PoseStamped goal = goals_queue_.front().goal;
+    nav_msgs::msg::Path path = getPlan(start, goal, goals_queue_.front().planner_id);
+
+    if (path.poses.size() == 0)
+    {
+      RCLCPP_WARN(get_logger(),
+                  "planner_thread: algorithm %s failed to generate a valid"
+                  " path to (%.2f, %.2f)",
+                  goals_queue_.front().planner_id.c_str(), goals_queue_.front().goal.pose.position.x,
+                  goals_queue_.front().goal.pose.position.y);
+      double time_used = now().seconds() - last_valid_plan_time_.seconds();
+      if (time_used > 10.0)
+      {
+        RCLCPP_WARN(get_logger(), "plan_thread: planner timeout %f, reset status", time_used);
+        std::unique_lock<std::mutex> lock(planner_mutex_);
+        resetState();
+        publishZeroVelocity();
+      }
+      continue;
+    }
+    else
+    {
+      RCLCPP_INFO(get_logger(), "planner_thread: Found valid path of size %lu to (%.2f, %.2f)", path.poses.size(),
+                  goal.pose.position.x, goal.pose.position.y);
+
+      // Publish the plan for visualization purposes
+      RCLCPP_INFO(get_logger(), "planner_thread: publish path");
+
+      publishPlan(path);
+      last_global_plan_ = path;
+      last_valid_plan_time_ = now();
+      new_global_plan_ = true;
+
+      if (state_ == NavState::PLANNING)
+        state_ = NavState::CONTROLLING;
+    }
+  }
+}
+
+void MoveBase::spinThread()
+{
+  // while (rclcpp::ok())
+  // {
+  rclcpp::spin(this->get_node_base_interface());
+  // }
+}
+
+void MoveBase::resetState()
+{
+  new_global_plan_ = false;
+  last_global_plan_.poses.clear();
+  last_nofity_plan_time_ = now();
+  last_valid_plan_time_ = now();
+  last_valid_control_time_ = now();
+  run_planner_ = false;
+
+  current_request_.planner_id.clear();
+  current_request_.controller_id.clear();
+
+  while (!goals_queue_.empty())
+    goals_queue_.pop();
+
+  progress_checker_->reset();
+
+  state_ = NavState::READY;
 }
 
 }  // namespace move_base

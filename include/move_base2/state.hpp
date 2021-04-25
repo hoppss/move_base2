@@ -1,14 +1,8 @@
-enum GlobalState
-{
-  G_UNACTIVE = 0,
-  G_INITERROR,
-  G_READY,
-  G_RUNING,
-};
-
 enum NavState
 {
-  PLANNING = 0,
+  UNACTIVE = 0,
+  READY,
+  PLANNING,
   CONTROLLING,
   EXCEPTION,
   STOPPING,

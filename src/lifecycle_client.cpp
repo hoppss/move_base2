@@ -114,7 +114,7 @@ public:
    * how long we wait for a response before returning
    * unknown state
    */
-  bool change_state(std::uint8_t transition, std::chrono::seconds time_out = 3s)
+  bool change_state(std::uint8_t transition, std::chrono::seconds time_out = 4s)
   {
     auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
     request->transition.id = transition;
@@ -166,7 +166,7 @@ private:
  */
 void callee_script(std::shared_ptr<LifecycleServiceClient> lc_client)
 {
-  rclcpp::WallRate time_between_state_changes(0.1);  // 10s
+  rclcpp::WallRate time_between_state_changes(0.25);  // 4s
 
   // configure
   {

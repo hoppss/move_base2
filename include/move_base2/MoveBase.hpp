@@ -6,6 +6,11 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+#include <atomic>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -44,6 +49,7 @@
 
 #include "move_base2/state.hpp"
 #include "move_base2/srv/navigate_to_pose.hpp"
+#include "move_base2/request_info.hpp"
 
 namespace move_base
 {
@@ -66,9 +72,7 @@ public:
   // controller
   bool findControllerId(const std::string& c_name, std::string& current_controller);
   void computeControl();
-  void setPlannerPath(const nav_msgs::msg::Path& path);
   void computeAndPublishVelocity();
-  void updateGlobalPath(const nav_msgs::msg::Path& path);
   void publishVelocity(const geometry_msgs::msg::TwistStamped& velocity);
   void publishZeroVelocity();
   bool isGoalReached();
@@ -87,12 +91,22 @@ public:
     return twist_thresh;
   }
 
+  void loop();  // loop control
+
 protected:
+  // lifecycle flag, aferactive is ready
+  NavState state_;
+
   // service server
   rclcpp::Service<move_base2::srv::NavigateToPose>::SharedPtr service_handle_;
 
   void handleService(const std::shared_ptr<move_base2::srv::NavigateToPose::Request> request,
                      std::shared_ptr<move_base2::srv::NavigateToPose::Response> response);
+
+  std::queue<requestInfo> goals_queue_;
+
+  requestInfo current_request_;
+
   /**
    * @brief Configure member variables and initializes planner
    * @param state Reference to LifeCycle node state
@@ -142,9 +156,24 @@ protected:
   std::unique_ptr<nav2_util::NodeThread> global_costmap_thread_;
   nav2_costmap_2d::Costmap2D* global_costmap_;
 
+  // Global, function, status
+  nav_msgs::msg::Path last_global_plan_;
+  rclcpp::Time last_nofity_plan_time_;
+  rclcpp::Time last_valid_plan_time_;
+  std::atomic_bool new_global_plan_;
+
+  void planThread();
+  std::shared_ptr<std::thread> plan_thread_;
+  std::mutex planner_mutex_;
+  std::condition_variable planner_cond_;
+  bool run_planner_;
+
   // controller
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> controller_costmap_ros_;
   std::unique_ptr<nav2_util::NodeThread> controller_costmap_thread_;
+
+  // controller, function, status
+  rclcpp::Time last_valid_control_time_;
 
   std::unique_ptr<nav_2d_utils::OdomSubscriber> odom_sub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher_;
@@ -187,6 +216,12 @@ protected:
 
   // TF buffer
   std::shared_ptr<tf2_ros::Buffer> tf_;
+
+  std::shared_ptr<std::thread> spin_thread_;
+  void spinThread();
+
+public:
+  void resetState();
 };
 
 }  // namespace move_base

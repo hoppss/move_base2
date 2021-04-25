@@ -23,6 +23,7 @@ int main(int argc, char** argv)
   request->is_cancel = false;
   request->mode = move_base2::srv::NavigateToPose::Request::NAVI_MODE;
   request->planner_id = "GridBased";
+  request->controller_id = "FollowPath";
   request->goal.header.frame_id = "map";
   request->goal.pose.position.x = 1.5;
   request->goal.pose.position.y = 0.5;
