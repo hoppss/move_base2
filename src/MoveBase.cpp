@@ -24,6 +24,7 @@ MoveBase::MoveBase()
   : rclcpp_lifecycle::LifecycleNode("move_base_node")
 
   , state_(NavState::UNACTIVE)
+  , is_cancel_(false)
 
   , gp_loader_("nav2_core", "nav2_core::GlobalPlanner")
   , default_planner_ids_{ "GridBased" }
@@ -117,18 +118,25 @@ void MoveBase::loop()
     switch (state_)
     {
       case UNACTIVE: {
-        RCLCPP_INFO(get_logger(), "unactive cycle.....");
+        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000, "unactive cycle.....");  // ms
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
       break;
 
       case READY: {
-        RCLCPP_INFO(get_logger(), "ready cycle.....");
+        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000, "ready cycle.....");  // ms
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
       break;
 
       case PLANNING: {
+        if (is_cancel_)
+        {
+          std::unique_lock<std::mutex> lock(planner_mutex_);
+          state_ = NavState::STOPPING;
+          continue;
+        }
+
         rclcpp::Time t = now();
 
         if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
@@ -141,8 +149,14 @@ void MoveBase::loop()
       break;
 
       case CONTROLLING: {
-        //
         RCLCPP_INFO(get_logger(), "control cycle.....");
+        if (is_cancel_)
+        {
+          std::unique_lock<std::mutex> lock(planner_mutex_);
+          state_ = NavState::STOPPING;
+          continue;
+        }
+
         computeControl();
         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
@@ -167,9 +181,14 @@ void MoveBase::loop()
 
 MoveBase::~MoveBase()
 {
-  RCLCPP_INFO(get_logger(), "Destroying");
+  RCLCPP_INFO(get_logger(), "DeConstructor of MoveBase2");
   planners_.clear();
   global_costmap_thread_.reset();
+
+  if (spin_thread_)
+  {
+    spin_thread_->join();
+  }
 
   if (plan_thread_)
   {
@@ -445,9 +464,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
   // check is_cancel
   if (request->is_cancel)
   {
-    std::unique_lock<std::mutex> lock(planner_mutex_);
-    state_ = NavState::STOPPING;
-    lock.unlock();
+    is_cancel_ = true;
     return;
   }
 
@@ -467,11 +484,6 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
   req.controller_id = request->controller_id;
   req.goal = request->goal;
 
-  {
-    std::unique_lock<std::mutex> lock(planner_mutex_);
-    goals_queue_.push(req);
-  }
-
   std::string c_name = request->controller_id;
   std::string current_controller;
   if (findControllerId(c_name, current_controller))
@@ -490,6 +502,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
     return;
   }
 
+  // idle status
   if (state_ == NavState::READY)
   {
     state_ = PLANNING;
@@ -497,6 +510,23 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
     last_valid_control_time_ = now();
 
     progress_checker_->reset();
+    publishZeroVelocity();
+  }
+
+  // receive new goal ???
+  if (state_ == NavState::CONTROLLING)
+  {
+    state_ = PLANNING;
+    last_valid_plan_time_ = now();
+    last_valid_control_time_ = now();
+
+    progress_checker_->reset();
+    publishZeroVelocity();
+  }
+
+  {
+    std::unique_lock<std::mutex> lock(planner_mutex_);
+    goals_queue_.push(req);
   }
 
   last_nofity_plan_time_ = now();
@@ -585,26 +615,19 @@ bool MoveBase::findControllerId(const std::string& c_name, std::string& current_
 
 void MoveBase::computeControl()
 {
-  RCLCPP_INFO(get_logger(), "controller: Received a goal, begin computing control effort.");
-
   auto start = std::chrono::system_clock::now();
-  RCLCPP_INFO(get_logger(), "controller: 1");
 
   try
   {
     // check whether or not update global plan
     nav_msgs::msg::Path temp_path;
     bool need_update_goal_checker = false;  // local flag
-    RCLCPP_INFO(get_logger(), "controller: 2");
 
     {
       std::unique_lock<std::mutex> lock(planner_mutex_);
-      RCLCPP_INFO(get_logger(), "controller: 3");
 
       if (new_global_plan_)
       {
-        RCLCPP_INFO(get_logger(), "controller: 4");
-
         temp_path = last_global_plan_;
         new_global_plan_ = false;
         need_update_goal_checker = true;
@@ -614,10 +637,7 @@ void MoveBase::computeControl()
     // update global_path/end_pose/goal_checker, if new global plan
     if (need_update_goal_checker)
     {
-      RCLCPP_INFO(get_logger(), "controller: 5");
-
       controllers_[current_controller_]->setPlan(temp_path);
-      RCLCPP_INFO(get_logger(), "controller: 6");
 
       auto end_pose = temp_path.poses.back();
       end_pose.header.frame_id = temp_path.header.frame_id;
@@ -776,11 +796,15 @@ void MoveBase::planThread()
     // wait 阻塞，释放锁
     // notify 解除阻塞，加锁
     std::unique_lock<std::mutex> lock(planner_mutex_);
-    planner_cond_.wait(lock, [this]() { return run_planner_; });
+    planner_cond_.wait(lock, [this]() { return run_planner_ && !is_cancel_; });
 
     lock.unlock();
 
     run_planner_ = false;
+
+    // check global state_
+    if (state_ == NavState::STOPPING)
+      continue;
 
     RCLCPP_INFO(get_logger(), "planner_thread: getcurrentpose");
 
@@ -873,6 +897,7 @@ void MoveBase::resetState()
   progress_checker_->reset();
 
   state_ = NavState::READY;
+  is_cancel_ = false;
 }
 
 }  // namespace move_base

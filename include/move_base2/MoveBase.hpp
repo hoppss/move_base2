@@ -97,6 +97,8 @@ protected:
   // lifecycle flag, aferactive is ready
   NavState state_;
 
+  std::atomic_bool is_cancel_;
+
   // service server
   rclcpp::Service<move_base2::srv::NavigateToPose>::SharedPtr service_handle_;
 

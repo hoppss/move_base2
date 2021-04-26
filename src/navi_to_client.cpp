@@ -12,7 +12,14 @@ int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
 
-  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "usage: add_two_ints_client X Y");
+  if (argc != 3)
+  {
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "usage: navi_to_client x_coord y_coord");
+  }
+
+  double x = std::stod(argv[1]);
+  double y = std::stod(argv[2]);  // stod, char* to double
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "x[%f], y[%f]", x, y);
 
   std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("navi_to_client");
   rclcpp::Client<move_base2::srv::NavigateToPose>::SharedPtr client =
@@ -25,8 +32,8 @@ int main(int argc, char** argv)
   request->planner_id = "GridBased";
   request->controller_id = "FollowPath";
   request->goal.header.frame_id = "map";
-  request->goal.pose.position.x = 1.5;
-  request->goal.pose.position.y = 0.5;
+  request->goal.pose.position.x = x;
+  request->goal.pose.position.y = y;
   request->goal.pose.orientation.w = 1.0;
 
   while (!client->wait_for_service(1s))
