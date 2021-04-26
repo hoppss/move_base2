@@ -148,6 +148,13 @@ void MoveBase::loop()
       }
       break;
 
+      case STOPPING: {
+        publishZeroVelocity();
+        std::unique_lock<std::mutex> lock(planner_mutex_);
+        resetState();
+      }
+      break;
+
       case EXCEPTION: {
       }
       break;
@@ -428,30 +435,44 @@ nav2_util::CallbackReturn MoveBase::on_shutdown(const rclcpp_lifecycle::State&)
 void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPose::Request> request,
                              std::shared_ptr<move_base2::srv::NavigateToPose::Response> response)
 {
-  //
+  // log
   RCLCPP_INFO(get_logger(), "NaviTo: planner [%s] controller [%s], pose [%f, %f]", request->planner_id.c_str(),
               request->controller_id.c_str(), request->goal.pose.position.x, request->goal.pose.position.y);
 
-  RCLCPP_INFO(get_logger(), "NaviTo: goals_queue size %d", goals_queue_.size());
+  RCLCPP_INFO(get_logger(), "NaviTo: is_cancel [%d], goals_queue size [%d]", (int)request->is_cancel,
+              goals_queue_.size());
 
+  // check is_cancel
+  if (request->is_cancel)
+  {
+    std::unique_lock<std::mutex> lock(planner_mutex_);
+    state_ = NavState::STOPPING;
+    lock.unlock();
+    return;
+  }
+
+  // check lifecycle
   if (state_ == NavState::UNACTIVE)
   {
     RCLCPP_WARN(get_logger(), "NaviTo: unactive, please active lifecycle");
     response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
-    response->description = "request rejected, lifecycle fsm is not active";
+    response->description = "request rejected, lifecycle is not active";
     return;
   }
 
+  // push request to queue;
+  // planThread pop front request, save as current_request_, and start-plan;
+  requestInfo req;
+  req.planner_id = request->planner_id;
+  req.controller_id = request->controller_id;
+  req.goal = request->goal;
+
   {
     std::unique_lock<std::mutex> lock(planner_mutex_);
-    current_request_.planner_id = request->planner_id;
-    current_request_.controller_id = request->controller_id;
-    current_request_.goal = request->goal;
-
-    goals_queue_.push(current_request_);
+    goals_queue_.push(req);
   }
 
-  std::string c_name = current_request_.controller_id;
+  std::string c_name = request->controller_id;
   std::string current_controller;
   if (findControllerId(c_name, current_controller))
   {
@@ -459,7 +480,10 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
   }
   else
   {
-    resetState();
+    std::unique_lock<std::mutex> lock(planner_mutex_);
+    state_ = NavState::STOPPING;
+    lock.unlock();
+
     RCLCPP_ERROR(get_logger(), "NaviTo: failed to find controller-id");
     response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, error controller_id";
@@ -477,7 +501,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
 
   last_nofity_plan_time_ = now();
   run_planner_ = true;
-  planner_cond_.notify_one();
+  planner_cond_.notify_one();  // before cv.notify(), run_planner_ must be true
 
   response->result = move_base2::srv::NavigateToPose::Response::SUCCESS;
   response->description = "request received";
@@ -570,7 +594,7 @@ void MoveBase::computeControl()
   {
     // check whether or not update global plan
     nav_msgs::msg::Path temp_path;
-    bool need_update_goal_checker = false;
+    bool need_update_goal_checker = false;  // local flag
     RCLCPP_INFO(get_logger(), "controller: 2");
 
     {
@@ -627,6 +651,16 @@ void MoveBase::computeControl()
       publishZeroVelocity();
       return;
     }
+
+    // whether cycle global plan, notify condition_variable
+    // rclcpp::Time t = now();
+
+    // if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
+    // {
+    //   run_planner_ = true;
+    //   planner_cond_.notify_one();
+    //   last_nofity_plan_time_ = now();
+    // }
 
     // get Twist
     nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
@@ -756,23 +790,40 @@ void MoveBase::planThread()
       RCLCPP_ERROR(get_logger(), "planner_thread: getcurrentpose failed");
       continue;
     }
+
+    // check queues size, or update current_request_ variable
+    RCLCPP_INFO(get_logger(), "planner_thread: queue size %d", goals_queue_.size());
+    {
+      std::unique_lock<std::mutex> lock(planner_mutex_);
+      while (goals_queue_.size() > 1)
+        goals_queue_.pop();
+
+      if (goals_queue_.size() == 1)
+      {
+        current_request_ = goals_queue_.front();  // current_request_ only update at this place
+        goals_queue_.pop();
+      }
+    }
     RCLCPP_INFO(get_logger(), "planner_thread: makeplan");
-    geometry_msgs::msg::PoseStamped goal = goals_queue_.front().goal;
-    nav_msgs::msg::Path path = getPlan(start, goal, goals_queue_.front().planner_id);
+
+    geometry_msgs::msg::PoseStamped goal = current_request_.goal;
+    nav_msgs::msg::Path path = getPlan(start, goal, current_request_.planner_id);
 
     if (path.poses.size() == 0)
     {
       RCLCPP_WARN(get_logger(),
                   "planner_thread: algorithm %s failed to generate a valid"
                   " path to (%.2f, %.2f)",
-                  goals_queue_.front().planner_id.c_str(), goals_queue_.front().goal.pose.position.x,
-                  goals_queue_.front().goal.pose.position.y);
+                  current_request_.planner_id.c_str(), current_request_.goal.pose.position.x,
+                  current_request_.goal.pose.position.y);
       double time_used = now().seconds() - last_valid_plan_time_.seconds();
       if (time_used > 10.0)
       {
         RCLCPP_WARN(get_logger(), "plan_thread: planner timeout %f, reset status", time_used);
         std::unique_lock<std::mutex> lock(planner_mutex_);
         resetState();
+        lock.unlock();
+
         publishZeroVelocity();
       }
       continue;
