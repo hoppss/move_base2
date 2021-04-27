@@ -15,6 +15,10 @@ ros2 launch  move_base2 localization_launch.py
 ```
 ros2 run move_base2 move_base_node --ros-args --params-file ~/dd_ws/src/move_base2/params/nav2_params.yaml
 ```
+## or
+```
+ros2 launch move_base2 navigation_launch.py
+```
 
 ## rviz2
 
