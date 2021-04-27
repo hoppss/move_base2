@@ -99,6 +99,8 @@ protected:
 
   std::atomic_bool is_cancel_;
 
+  bool is_shutdown_;  // flag for ctrl_c signal. make sure plan_thread_ exit
+
   // service server
   rclcpp::Service<move_base2::srv::NavigateToPose>::SharedPtr service_handle_;
 

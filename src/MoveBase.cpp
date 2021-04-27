@@ -25,7 +25,7 @@ MoveBase::MoveBase()
 
   , state_(NavState::UNACTIVE)
   , is_cancel_(false)
-
+  , is_shutdown_(false)
   , gp_loader_("nav2_core", "nav2_core::GlobalPlanner")
   , default_planner_ids_{ "GridBased" }
   , default_planner_types_{ "nav2_navfn_planner/NavfnPlanner" }
@@ -182,6 +182,9 @@ void MoveBase::loop()
 MoveBase::~MoveBase()
 {
   RCLCPP_INFO(get_logger(), "DeConstructor of MoveBase2");
+  is_shutdown_ = true;
+  planner_cond_.notify_one();  // let planner thread exit
+
   planners_.clear();
   global_costmap_thread_.reset();
 
@@ -799,6 +802,10 @@ void MoveBase::planThread()
     lock.unlock();
 
     run_planner_ = false;
+
+    // check for ctrl_c signal
+    if (is_shutdown_)
+      break;
 
     // check global state_
     if (state_ == NavState::STOPPING)
