@@ -158,7 +158,7 @@ void MoveBase::loop()
         }
 
         computeControl();
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
       break;
 
@@ -822,11 +822,11 @@ void MoveBase::planThread()
 
       if (goals_queue_.size() == 1)
       {
+        RCLCPP_INFO(get_logger(), "update queue goal to plan, pop");
         current_request_ = goals_queue_.front();  // current_request_ only update at this place
         goals_queue_.pop();
       }
     }
-    RCLCPP_INFO(get_logger(), "planner_thread: makeplan");
 
     geometry_msgs::msg::PoseStamped goal = current_request_.goal;
     nav_msgs::msg::Path path = getPlan(start, goal, current_request_.planner_id);
