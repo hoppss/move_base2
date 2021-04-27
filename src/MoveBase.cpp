@@ -211,8 +211,6 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
 
   planner_types_.resize(planner_ids_.size());
 
-  RCLCPP_INFO(get_logger(), "?????");
-
   auto node = shared_from_this();
 
   for (size_t i = 0; i != planner_ids_.size(); i++)
@@ -866,7 +864,10 @@ void MoveBase::planThread()
       new_global_plan_ = true;
 
       if (state_ == NavState::PLANNING)
+      {
         state_ = NavState::CONTROLLING;
+        progress_checker_->reset();
+      }
     }
   }
 }
