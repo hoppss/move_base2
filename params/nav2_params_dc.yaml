@@ -1,0 +1,97 @@
+move_base_node:
+  ros__parameters:
+    # planner
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased", "Straight2D"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: false
+      allow_unknown: true
+
+    Straight2D:
+      plugin: "nav2_straight_planner/StraightPlanner"
+      tolerance: 0.5
+
+    # controller
+    controller_frequency: 10.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugin: "pp_goal_checker"
+    controller_plugins: ["PurePersuit"]
+    odom_topic: /odom_chassis
+
+    PurePersuit:
+      plugin: "pp_core::PPLocalPlanner"
+      tracking_mode: false
+      tracking_distance: 1.0
+      use_local_planner: false
+      max_trans_vel: 0.5
+      max_trans_acc: 1.5
+      max_rot_vel: 1.0
+      max_rot_acc: 2.0
+      brake_angle: 0.5
+      brake_distance: 0.5
+      lookahead_distance: 0.5
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.10
+      transform_tolerance: 1.0
+
+    # Progress checker parameters
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 60.0
+    # Goal checker parameters
+    pp_goal_checker:
+      plugin: "pp_core::PPGoalChecker"
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 1.0
+      transform_tolerance: 1.0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: True
+      rolling_window: true
+      width: 5
+      height: 5
+      resolution: 0.05
+      robot_radius: 0.25
+      plugins: ["static_layer", "inflation_layer"]
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 10.0
+        inflation_radius: 0.55
+        inflate_unknown: true
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      always_send_full_costmap: True
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: True
+      robot_radius: 0.22
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["static_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 10.0
+        inflation_radius: 0.55
+        inflate_unknown: true
+      always_send_full_costmap: True

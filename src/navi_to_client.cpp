@@ -29,8 +29,8 @@ int main(int argc, char** argv)
 
   request->is_cancel = false;
   request->mode = move_base2::srv::NavigateToPose::Request::NAVI_MODE;
-  request->planner_id = "GridBased";
-  request->controller_id = "FollowPath";
+  request->planner_id = "Straight2D";      // Straight2D, GridBased
+  request->controller_id = "PurePersuit";  // PurePersuit; FollowPath
   request->goal.header.frame_id = "map";
   request->goal.pose.position.x = x;
   request->goal.pose.position.y = y;

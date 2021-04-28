@@ -26,6 +26,7 @@ MoveBase::MoveBase()
   , state_(NavState::UNACTIVE)
   , is_cancel_(false)
   , is_shutdown_(false)
+
   , gp_loader_("nav2_core", "nav2_core::GlobalPlanner")
   , default_planner_ids_{ "GridBased" }
   , default_planner_types_{ "nav2_navfn_planner/NavfnPlanner" }
