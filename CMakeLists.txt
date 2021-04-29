@@ -30,6 +30,7 @@ find_package(nav2_msgs REQUIRED)
 find_package(nav2_common REQUIRED)
 find_package(nav2_util REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
+find_package(nav2_controller REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(behaviortree_cpp_v3 REQUIRED)
 find_package(nav2_behavior_tree REQUIRED)
@@ -56,6 +57,7 @@ set(dependencies
   nav2_msgs
   nav2_common
   nav2_costmap_2d
+  nav2_controller
   nav_msgs
   nav_2d_msgs
   nav_2d_utils
@@ -111,10 +113,16 @@ ament_target_dependencies(navi_to_client ${dependencies})
 target_compile_definitions(navi_to_client PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS") # prevent pluginlib from using boost
 rosidl_target_interfaces(navi_to_client ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
 
+
+## object tracking msg transfer
+add_executable(receive_goal_to_mb src/main_to_mb.cpp src/receive_goal_to_mb.cpp)
+ament_target_dependencies( receive_goal_to_mb  ${dependencies})
+rosidl_target_interfaces(receive_goal_to_mb ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
+
 ## install
 
 
-install(TARGETS move_base_node lifecycle_client navi_to_client
+install(TARGETS move_base_node lifecycle_client navi_to_client receive_goal_to_mb
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
