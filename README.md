@@ -10,6 +10,14 @@ ros2 launch  move_base2 localization_launch.py
 ```
 > rviz2 发布初始位置
 
+or
+## slam
+```
+ros2 launch slam_toolbox online_async_launch.py
+## save map
+ros2 run nav2_map_server map_saver_cli -f ~/map
+```
+
 ## 启动move_base
 ```
 ## 命令行加载
@@ -60,5 +68,5 @@ ros2 launch move_base2 tracking_launch_mb.py
 ```
 cd ros2_foxy
 ros2 launch move_base2 tracking_base.py
-ros2 launch nav2_bringup navigation_launch.py
+ros2 launch move_base2 tracking_launch_mb.py
 ```
