@@ -28,7 +28,7 @@ int main(int argc, char** argv)
   auto request = std::make_shared<move_base2::srv::NavigateToPose::Request>();
 
   request->is_cancel = false;
-  request->mode = move_base2::srv::NavigateToPose::Request::NAVI_MODE;
+  // request->mode = move_base2::srv::NavigateToPose::Request::NAVI_MODE;
   request->planner_id = "GridBased";
   request->controller_id = "FollowPath";
 
