@@ -18,7 +18,7 @@ ros2 launch slam_toolbox online_async_launch.py
 ros2 run nav2_map_server map_saver_cli -f ~/map
 ```
 
-## 启动move_base
+## 仿真情況下启动move_base
 ```
 ## 命令行加载
 ros2 run move_base2 move_base_node --ros-args --params-file ~/dd_ws/src/move_base2/params/nav2_params.yaml

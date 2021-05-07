@@ -47,6 +47,9 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
+find_package(rcl_interfaces REQUIRED)
+find_package(athena_interfaces REQUIRED)
+
 ## dependencies
 set(dependencies
   rclcpp
@@ -71,6 +74,8 @@ set(dependencies
   nav2_core
   angles
   map_msgs
+  rcl_interfaces
+  athena_interfaces
 )
 
 ## include directory

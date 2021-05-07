@@ -47,6 +47,8 @@
 #include "nav2_controller/plugins/simple_progress_checker.hpp"
 #include "nav2_controller/plugins/stopped_goal_checker.hpp"
 
+#include "athena_interfaces/srv/nav_mode.hpp"
+
 #include "move_base2/state.hpp"
 #include "move_base2/srv/navigate_to_pose.hpp"
 #include "move_base2/request_info.hpp"
@@ -226,6 +228,16 @@ protected:
 
 public:
   void resetState();
+
+  // set_mode
+  int navi_mode_;
+  rclcpp::Service<athena_interfaces::srv::NavMode>::SharedPtr get_mode_server_;
+  rclcpp::Client<rcl_interfaces::srv::ListParameters>::SharedPtr param_client_;
+
+  void getModeCallback(const std::shared_ptr<athena_interfaces::srv::NavMode::Request> req,
+                       std::shared_ptr<athena_interfaces::srv::NavMode::Response> res);
+
+  bool setControllerTrackingMode(bool enable);
 };
 
 }  // namespace move_base

@@ -7,3 +7,9 @@ enum NavState
   EXCEPTION,
   STOPPING,
 };
+
+enum NavMode
+{
+  NavMode_AB = 0,
+  NavMode_Track,
+};

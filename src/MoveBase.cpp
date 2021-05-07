@@ -27,6 +27,8 @@ MoveBase::MoveBase()
   , is_cancel_(false)
   , is_shutdown_(false)
 
+  , navi_mode_(NavMode::NavMode_Track)
+
   , gp_loader_("nav2_core", "nav2_core::GlobalPlanner")
   , default_planner_ids_{ "GridBased" }
   , default_planner_types_{ "nav2_navfn_planner/NavfnPlanner" }
@@ -352,6 +354,10 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
 
   odom_sub_ = std::make_unique<nav_2d_utils::OdomSubscriber>(node);
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
+
+  // get mode interfaces
+  get_mode_server_ = this->create_service<athena_interfaces::srv::NavMode>(
+      "get_mode", std::bind(&MoveBase::getModeCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Finally, Create the action servers for path planning to a pose and through poses
   service_handle_ = this->create_service<move_base2::srv::NavigateToPose>(
@@ -907,6 +913,66 @@ void MoveBase::resetState()
 
   state_ = NavState::READY;
   is_cancel_ = false;
+}
+
+void MoveBase::getModeCallback(const std::shared_ptr<athena_interfaces::srv::NavMode::Request> req,
+                               std::shared_ptr<athena_interfaces::srv::NavMode::Response> res)
+{
+  res->success = false;
+
+  if (state_ < NavState::READY)
+    return;
+
+  switch (req->control_mode)
+  {
+    case athena_interfaces::srv::NavMode::Request::EXPLR_NAV_AB: {
+      RCLCPP_INFO(this->get_logger(), "Change mode to navigating");
+      // config().blackboard->set<std::string>("nav_mode", "navigating");
+      if (navi_mode_ != NavMode::NavMode_AB)
+        navi_mode_ = NavMode::NavMode_Track;
+
+      setControllerTrackingMode(false);
+    }
+    break;
+    case athena_interfaces::srv::NavMode::Request::TRACK_F:
+    case athena_interfaces::srv::NavMode::Request::TRACK_S: {
+      RCLCPP_INFO(this->get_logger(), "Change mode to tracking");
+      if (navi_mode_ != NavMode::NavMode_Track)
+        navi_mode_ = NavMode::NavMode_AB;
+      setControllerTrackingMode(true);
+      // config().blackboard->set<std::string>("nav_mode", "tracking");
+    }
+    break;
+    case athena_interfaces::srv::NavMode::Request::EXPLR_MAP_UPDATE:
+    case athena_interfaces::srv::NavMode::Request::EXPLR_MAP_NEW:
+    case athena_interfaces::srv::NavMode::Request::MODE_STOP: {
+      RCLCPP_INFO(this->get_logger(), "Stop navigation");
+      // config().blackboard->set<std::string>("nav_mode", "none");
+    }
+    break;
+    default:
+      return;
+  }
+
+  res->success = true;
+}
+
+bool MoveBase::setControllerTrackingMode(bool enable)
+{
+  auto client = this->create_client<rcl_interfaces::srv::SetParameters>("move_base_node/set_parameters");
+  client->wait_for_service();
+
+  auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+  rclcpp::Parameter tracking_mode("PurePersuit.tracking_mode", enable);
+  request->parameters.push_back(tracking_mode.to_parameter_msg());
+
+  auto future = client->async_send_request(request);
+  // rclcpp::spin_until_future_complete(node_, future);
+
+  // RCLCPP_INFO(node_->get_logger(), "Change controller tracking_mode %i",
+  //    future.get()->results.front().successful);
+
+  return true;
 }
 
 }  // namespace move_base
