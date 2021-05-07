@@ -42,26 +42,23 @@ ros2 run move_base2  lifecycle_client
 
 ## 发布目标点请求
 ```
+#1
 ros2 run move_base2 navi_to_client 1.5 0.5
-
-##
+#2
 scripts/publisher.py
+#3 rviz2_plugin 切換NaviTo 插件， 實際爲 /NaviTo client
+rviz2
 ```
 
-> 在rviz2 上观察坐标， 命令行参数后两个是坐标x，y; 忽略角度信息，默认对齐都是map frame
-
-
-
-## 启动实体机器人
+## 启动实体机器人測試，與杜晨對接
 
 ```
-## 追踪模式
 ## 底盘 + rtabmap location  + object_tracking
+## run.py
 ros2 launch move_base2 tracking_base.py
 ## 导航模块
 ros2 launch move_base2 tracking_launch_mb.py
 ```
-
 
 ## ducheng, 實際測試 tracking task
 
