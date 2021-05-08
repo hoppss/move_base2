@@ -12,4 +12,5 @@ enum NavMode
 {
   NavMode_AB = 0,
   NavMode_Track,
+  NavMode_STOP,
 };

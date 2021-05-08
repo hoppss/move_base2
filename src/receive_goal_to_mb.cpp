@@ -29,7 +29,7 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
   src_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       "/tracking_pose", sub_qos, std::bind(&ReceiveGoalMb::srcPoseHandle, this, std::placeholders::_1));
 
-  timer_ = this->create_wall_timer(std::chrono::milliseconds(300), std::bind(&ReceiveGoalMb::timerCallback, this));
+  timer_ = this->create_wall_timer(std::chrono::milliseconds(250), std::bind(&ReceiveGoalMb::timerCallback, this));
 
   // tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose", rclcpp::SystemDefaultsQoS());
   req_ = std::make_shared<move_base2::srv::NavigateToPose::Request>();
@@ -126,7 +126,7 @@ bool ReceiveGoalMb::transformPose(const std::string& frame, const geometry_msgs:
 
 void ReceiveGoalMb::timerCallback()
 {
-  RCLCPP_INFO_THROTTLE(this->get_logger(), *get_clock(), 2000, "receive_goal ...");
+  RCLCPP_DEBUG_THROTTLE(this->get_logger(), *get_clock(), 2000, "receive_goal ...");
 
   if (goals_vec_.empty())
   {

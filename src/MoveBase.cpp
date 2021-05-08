@@ -27,7 +27,7 @@ MoveBase::MoveBase()
   , is_cancel_(false)
   , is_shutdown_(false)
 
-  , navi_mode_(NavMode::NavMode_Track)
+  , navi_mode_(NavMode::NavMode_AB)
 
   , gp_loader_("nav2_core", "nav2_core::GlobalPlanner")
   , default_planner_ids_{ "GridBased" }
@@ -45,8 +45,8 @@ MoveBase::MoveBase()
   , default_goal_checker_type_{ "nav2_controller::SimpleGoalChecker" }
 
   , lp_loader_("nav2_core", "nav2_core::Controller")
-  , default_controller_ids_{ "FollowPath" }
-  , default_controller_types_{ "dwb_core::DWBLocalPlanner" }
+  , default_controller_ids_{ "PurePersuit" }
+  , default_controller_types_{ "pp_core::PPLocalPlanner" }
 {
   // setup planner+global_costmap
   RCLCPP_INFO(get_logger(), "Creating Planner");
@@ -121,13 +121,13 @@ void MoveBase::loop()
     switch (state_)
     {
       case UNACTIVE: {
-        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000, "unactive cycle.....");  // ms
+        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000, "unactive cycle.....");  // ms
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
       break;
 
       case READY: {
-        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000, "ready cycle.....");  // ms
+        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000, "ready cycle.....");  // ms
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
       break;
