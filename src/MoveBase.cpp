@@ -371,7 +371,7 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
 
   // Finally, Create the action servers for path planning to a pose and through poses
   service_handle_ = this->create_service<move_base2::srv::NavigateToPose>(
-      "/NaviTo", std::bind(&MoveBase::handleService, this, std::placeholders::_1, std::placeholders::_2));
+      "NaviTo", std::bind(&MoveBase::handleService, this, std::placeholders::_1, std::placeholders::_2));
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
