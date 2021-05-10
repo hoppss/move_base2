@@ -124,6 +124,11 @@ add_executable(receive_goal_to_mb src/main_to_mb.cpp src/receive_goal_to_mb.cpp)
 ament_target_dependencies( receive_goal_to_mb  ${dependencies})
 rosidl_target_interfaces(receive_goal_to_mb ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
 
+## costmap pub cycle test
+add_executable(test1 test/test.cpp)
+ament_target_dependencies(test1  ${dependencies})
+rosidl_target_interfaces(test1 ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
+
 ## install
 
 
