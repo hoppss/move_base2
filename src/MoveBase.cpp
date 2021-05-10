@@ -160,6 +160,16 @@ void MoveBase::loop()
           continue;
         }
 
+        rclcpp::Time t = now();
+
+        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
+        {
+          run_planner_ = true;
+          planner_cond_.notify_one();
+          last_nofity_plan_time_ = now();
+          RCLCPP_INFO(get_logger(), "control cycle, replan");
+        }
+
         computeControl();
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
@@ -518,7 +528,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
     last_valid_control_time_ = now();
 
     progress_checker_->reset();
-    publishZeroVelocity();
+    // publishZeroVelocity();
   }
 
   // receive new goal ???
@@ -529,7 +539,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
     last_valid_control_time_ = now();
 
     progress_checker_->reset();
-    publishZeroVelocity();
+    // publishZeroVelocity();
   }
 
   {
@@ -695,7 +705,8 @@ void MoveBase::computeControl()
     auto cmd_vel_2d =
         controllers_[current_controller_]->computeVelocityCommands(pose, nav_2d_utils::twist2Dto3D(twist));
 
-    RCLCPP_INFO(get_logger(), "Publishing velocity at time %.2f", now().seconds());
+    RCLCPP_INFO(get_logger(), "Publishing velocity at time %.2f [%f,%f]", now().seconds(), cmd_vel_2d.twist.linear.x,
+                cmd_vel_2d.twist.angular.z);
     publishVelocity(cmd_vel_2d);
 
     auto end = std::chrono::system_clock::now();
