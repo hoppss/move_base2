@@ -871,7 +871,7 @@ void MoveBase::planThread()
         resetState();
         lock.unlock();
 
-        publishZeroVelocity();
+        // publishZeroVelocity();
       }
       continue;
     }
