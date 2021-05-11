@@ -129,10 +129,15 @@ add_executable(test1 test/test.cpp)
 ament_target_dependencies(test1  ${dependencies})
 rosidl_target_interfaces(test1 ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
 
+## costmap pub cycle test
+add_executable(portal test/namespace_portal.cpp)
+ament_target_dependencies(portal  ${dependencies})
+rosidl_target_interfaces(portal ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
+
 ## install
 
 
-install(TARGETS move_base_node lifecycle_client navi_to_client receive_goal_to_mb
+install(TARGETS move_base_node lifecycle_client navi_to_client receive_goal_to_mb portal test1
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

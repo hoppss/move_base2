@@ -58,5 +58,5 @@ def generate_launch_description():
             executable='move_base_node',
             output='screen',
             parameters=[configured_params],
-            remappings=remappings),
+            namespace=namespace),
     ])

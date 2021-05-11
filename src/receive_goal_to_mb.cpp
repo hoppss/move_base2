@@ -33,7 +33,7 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
 
   // tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose", rclcpp::SystemDefaultsQoS());
   req_ = std::make_shared<move_base2::srv::NavigateToPose::Request>();
-  navi_to_client_ = this->create_client<move_base2::srv::NavigateToPose>("/NaviTo");
+  navi_to_client_ = this->create_client<move_base2::srv::NavigateToPose>("NaviTo");
 }
 
 ReceiveGoalMb::~ReceiveGoalMb()
