@@ -31,6 +31,8 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
 
   timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&ReceiveGoalMb::timerCallback, this));
 
+  tracking_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("tracking_marker", 10);
+
   // tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose", rclcpp::SystemDefaultsQoS());
   req_ = std::make_shared<move_base2::srv::NavigateToPose::Request>();
   navi_to_client_ = this->create_client<move_base2::srv::NavigateToPose>("NaviTo");
@@ -45,6 +47,8 @@ ReceiveGoalMb::~ReceiveGoalMb()
   req_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
+
+  tracking_marker_pub_.reset();
 }
 
 // nav2_util::CallbackReturn
@@ -101,6 +105,8 @@ void ReceiveGoalMb::srcPoseHandle(const geometry_msgs::msg::PoseStamped::SharedP
 
   std::lock_guard<std::mutex> guard(mutex_);
   goals_vec_.push_back(tar_pose);
+
+  publishMarker(tar_pose);
 }
 
 bool ReceiveGoalMb::transformPose(const std::string& frame, const geometry_msgs::msg::PoseStamped& in_pose,
@@ -168,6 +174,30 @@ void ReceiveGoalMb::timerCallback()
       auto future = navi_to_client_->async_send_request(req_, response_received_callback);
     }
   }
+}
+
+void ReceiveGoalMb::publishMarker(geometry_msgs::msg::PoseStamped& pose)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header = pose.header;
+  marker.ns = "tracking";
+  marker.id = 0;
+
+  marker.type = visualization_msgs::msg::Marker::ARROW;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  marker.pose = pose.pose;
+
+  marker.scale.x = 0.5;
+  marker.scale.y = 0.1;
+  marker.scale.z = 0.1;
+
+  marker.color.g = 1.0, marker.color.a = 0.8;
+
+  marker.lifetime.sec = 0;
+  marker.lifetime.nanosec = 0;
+
+  tracking_marker_pub_->publish(marker);
 }
 
 }  // namespace nav2_receive_goal

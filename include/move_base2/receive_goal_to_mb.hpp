@@ -14,6 +14,7 @@
 #include <nav2_util/lifecycle_node.hpp>
 
 #include "move_base2/srv/navigate_to_pose.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 
 namespace nav2_receive_goal
 {
@@ -57,6 +58,9 @@ private:
   std::vector<geometry_msgs::msg::PoseStamped> goals_vec_;
   rclcpp::TimerBase::SharedPtr timer_;
   void timerCallback();
+
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr tracking_marker_pub_;
+  void publishMarker(geometry_msgs::msg::PoseStamped& pose);
 };
 
 }  // namespace nav2_receive_goal
