@@ -27,9 +27,9 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
   rclcpp::SensorDataQoS sub_qos;
   sub_qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
   src_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-      "/tracking_pose", sub_qos, std::bind(&ReceiveGoalMb::srcPoseHandle, this, std::placeholders::_1));
+      "tracking_pose", sub_qos, std::bind(&ReceiveGoalMb::srcPoseHandle, this, std::placeholders::_1));
 
-  timer_ = this->create_wall_timer(std::chrono::milliseconds(250), std::bind(&ReceiveGoalMb::timerCallback, this));
+  timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&ReceiveGoalMb::timerCallback, this));
 
   // tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose", rclcpp::SystemDefaultsQoS());
   req_ = std::make_shared<move_base2::srv::NavigateToPose::Request>();
@@ -163,7 +163,7 @@ void ReceiveGoalMb::timerCallback()
       }
     };
 
-    if (navi_to_client_->wait_for_service(std::chrono::milliseconds(200)))
+    if (navi_to_client_->wait_for_service(std::chrono::milliseconds(100)))
     {
       auto future = navi_to_client_->async_send_request(req_, response_received_callback);
     }

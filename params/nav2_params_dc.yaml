@@ -22,7 +22,7 @@ move_base_node:
     progress_checker_plugin: "progress_checker"
     goal_checker_plugin: "pp_goal_checker"
     controller_plugins: ["PurePersuit"]
-    odom_topic: /odom_chassis
+    odom_topic: odom_chassis
 
     PurePersuit:
       plugin: "pp_core::PPLocalPlanner"

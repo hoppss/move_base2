@@ -21,7 +21,7 @@ using namespace std::chrono_literals;
 namespace move_base
 {
 MoveBase::MoveBase()
-  : rclcpp_lifecycle::LifecycleNode("move_base_node")
+  : nav2_util::LifecycleNode("move_base_node", "", true)
 
   , state_(NavState::UNACTIVE)
   , is_cancel_(false)
@@ -75,7 +75,8 @@ MoveBase::MoveBase()
   }
 
   // Setup the global costmap
-  RCLCPP_INFO(get_logger(), "what is namespace: %s", get_namespace());
+  ns_ = get_namespace();
+  RCLCPP_INFO(get_logger(), "what is namespace: %s", ns_.c_str());
   global_costmap_ros_ = std::make_shared<nav2_costmap_2d::Costmap2DROS>(
       "global_costmap", std::string{ get_namespace() }, "global_costmap");
 
@@ -93,8 +94,10 @@ MoveBase::MoveBase()
                 default_controller_types_[i].c_str());  // dwb_core::DWBLocalPlanner
   }
 
-  declare_parameter("controller_frequency", 10.0);
+  default_odom_topic_ = "odom_chassis";
 
+  declare_parameter("controller_frequency", 10.0);
+  declare_parameter("odom_topic", default_odom_topic_);
   declare_parameter("progress_checker_plugin", default_progress_checker_id_);
   declare_parameter("goal_checker_plugin", default_goal_checker_id_);
   declare_parameter("controller_plugins", default_controller_ids_);
@@ -362,7 +365,8 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
 
   RCLCPP_INFO(get_logger(), "Controller Server has %s controllers available.", controller_ids_concat_.c_str());
 
-  odom_sub_ = std::make_unique<nav_2d_utils::OdomSubscriber>(node);
+  get_parameter("odom_topic", default_odom_topic_);
+  odom_sub_ = std::make_unique<nav2_util::OdomSmoother>(node, 0.1, default_odom_topic_);
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
 
   // get mode interfaces
@@ -701,9 +705,8 @@ void MoveBase::computeControl()
     // }
 
     // get Twist
-    nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
-    auto cmd_vel_2d =
-        controllers_[current_controller_]->computeVelocityCommands(pose, nav_2d_utils::twist2Dto3D(twist));
+    geometry_msgs::msg::Twist twist = odom_sub_->getTwist();
+    auto cmd_vel_2d = controllers_[current_controller_]->computeVelocityCommands(pose, twist);
 
     RCLCPP_INFO(get_logger(), "Publishing velocity at time %.2f [%f,%f]", now().seconds(), cmd_vel_2d.twist.linear.x,
                 cmd_vel_2d.twist.angular.z);
@@ -742,9 +745,9 @@ void MoveBase::computeAndPublishVelocity()
     throw nav2_core::PlannerException("Failed to make progress");
   }
 
-  nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
+  geometry_msgs::msg::Twist twist = getThresholdedTwist(odom_sub_->getTwist());
 
-  auto cmd_vel_2d = controllers_[current_controller_]->computeVelocityCommands(pose, nav_2d_utils::twist2Dto3D(twist));
+  auto cmd_vel_2d = controllers_[current_controller_]->computeVelocityCommands(pose, twist);
 
   // std::shared_ptr<Action::Feedback> feedback = std::make_shared<Action::Feedback>();
   // feedback->speed = std::hypot(cmd_vel_2d.twist.linear.x, cmd_vel_2d.twist.linear.y);
@@ -787,9 +790,8 @@ bool MoveBase::isGoalReached()
     return false;
   }
 
-  nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
-  geometry_msgs::msg::Twist velocity = nav_2d_utils::twist2Dto3D(twist);
-  return goal_checker_->isGoalReached(pose.pose, end_pose_, velocity);
+  geometry_msgs::msg::Twist twist = getThresholdedTwist(odom_sub_->getTwist());
+  return goal_checker_->isGoalReached(pose.pose, end_pose_, twist);
 }
 
 bool MoveBase::getRobotPose(geometry_msgs::msg::PoseStamped& pose)

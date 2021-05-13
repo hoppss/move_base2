@@ -16,7 +16,7 @@ def generate_launch_description():
     namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
-    params_file = LaunchConfiguration('params_file')
+    nav_params_file = LaunchConfiguration('nav_params_file')
 
     remappings = [('/tf', 'tf'),
                   ('/tf_static', 'tf_static')]
@@ -27,7 +27,7 @@ def generate_launch_description():
         'autostart': autostart}
 
     configured_params = RewrittenYaml(
-            source_file=params_file,
+            source_file=nav_params_file,
             root_key=namespace,
             param_rewrites=param_substitutions,
             convert_types=True)
@@ -49,7 +49,7 @@ def generate_launch_description():
             description='Automatically startup the nav2 stack'),
 
         DeclareLaunchArgument(
-            'params_file',
+            'nav_params_file',
             default_value=os.path.join(bringup_dir, 'params', 'nav2_params_dc.yaml'),
             description='Full path to the ROS2 parameters file to use'),
 

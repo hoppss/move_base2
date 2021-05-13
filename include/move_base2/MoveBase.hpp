@@ -36,12 +36,14 @@
 
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "nav2_msgs/msg/costmap.hpp"
+
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_util/simple_action_server.hpp"
+#include "nav2_util/odometry_utils.hpp"
 
-#include "nav_2d_utils/odom_subscriber.hpp"
 #include "nav_2d_utils/conversions.hpp"
 #include "nav_2d_utils/tf_help.hpp"
+#include "nav2_util/lifecycle_node.hpp"
 
 #include "nav2_controller/plugins/simple_goal_checker.hpp"
 #include "nav2_controller/plugins/simple_progress_checker.hpp"
@@ -55,7 +57,7 @@
 
 namespace move_base
 {
-class MoveBase : public rclcpp_lifecycle::LifecycleNode
+class MoveBase : public nav2_util::LifecycleNode
 {
 public:
   MoveBase();
@@ -84,12 +86,12 @@ public:
     return (std::abs(velocity) > threshold) ? velocity : 0.0;
   }
 
-  nav_2d_msgs::msg::Twist2D getThresholdedTwist(const nav_2d_msgs::msg::Twist2D& twist)
+  geometry_msgs::msg::Twist getThresholdedTwist(const geometry_msgs::msg::Twist& twist)
   {
-    nav_2d_msgs::msg::Twist2D twist_thresh;
-    twist_thresh.x = getThresholdedVelocity(twist.x, min_x_velocity_threshold_);
-    twist_thresh.y = getThresholdedVelocity(twist.y, min_y_velocity_threshold_);
-    twist_thresh.theta = getThresholdedVelocity(twist.theta, min_theta_velocity_threshold_);
+    geometry_msgs::msg::Twist twist_thresh;
+    twist_thresh.linear.x = getThresholdedVelocity(twist.linear.x, min_x_velocity_threshold_);
+    twist_thresh.linear.y = getThresholdedVelocity(twist.linear.y, min_y_velocity_threshold_);
+    twist_thresh.angular.z = getThresholdedVelocity(twist.angular.z, min_theta_velocity_threshold_);
     return twist_thresh;
   }
 
@@ -181,7 +183,9 @@ protected:
   // controller, function, status
   rclcpp::Time last_valid_control_time_;
 
-  std::unique_ptr<nav_2d_utils::OdomSubscriber> odom_sub_;
+  std::unique_ptr<nav2_util::OdomSmoother> odom_sub_;
+  std::string default_odom_topic_;
+
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher_;
 
   // controller, Progress Checker Plugin
@@ -238,6 +242,9 @@ public:
                        std::shared_ptr<athena_interfaces::srv::NavMode::Response> res);
 
   bool setControllerTrackingMode(bool enable);
+
+  // ns
+  std::string ns_;
 };
 
 }  // namespace move_base
