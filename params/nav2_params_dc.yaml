@@ -21,7 +21,7 @@ move_base_node:
     min_theta_velocity_threshold: 0.001
     progress_checker_plugin: "progress_checker"
     goal_checker_plugin: "pp_goal_checker"
-    controller_plugins: ["PurePersuit"]
+    controller_plugins: ["PurePersuit", "FollowPath"]
     odom_topic: odom_chassis
 
     PurePersuit:
@@ -40,6 +40,36 @@ move_base_node:
       yaw_goal_tolerance: 0.10
       transform_tolerance: 1.0
 
+    FollowPath:
+      plugin: "teb_local_planner::TebLocalPlannerROS"
+      footprint_model.type: polygon
+      footprint_model.vertices: "[[0.36, 0.18], [0.36, -0.18], [-0.415, -0.18], [-0.415, 0.18]]"
+      min_obstacle_dist: 0.10
+      inflation_dist: 0.20
+      costmap_converter_plugin: "costmap_converter::CostmapToPolygonsDBSMCCH"
+      costmap_converter_spin_thread: True
+      costmap_converter_rate: 15
+      enable_homotopy_class_planning: False
+      enable_multithreading: True
+      optimization_verbose: False
+      min_samples: 3
+      max_samples: 20
+      max_global_plan_lookahead_dist: 1.5
+      visualize_hc_graph: True
+      max_vel_x: 0.36
+      max_vel_theta: 1.0
+      acc_lim_x: 2.5
+      acc_lim_theta: 3.2
+      teb_autosize: True
+      weight_kinematics_forward_drive: 1000.
+      weight_inflation: 10.
+      no_outer_iterations: 10
+      no_inner_iterations: 9
+      control_look_ahead_poses: 3
+      #obstacle_association_force_inclusion_factor: 1.0
+
+
+
     # Progress checker parameters
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
@@ -47,7 +77,10 @@ move_base_node:
       movement_time_allowance: 60.0
     # Goal checker parameters
     pp_goal_checker:
-      plugin: "pp_core::PPGoalChecker"
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.5
+      yaw_goal_tolerance: 0.5
+      stateful: True
 
 local_costmap:
   local_costmap:

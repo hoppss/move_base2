@@ -45,8 +45,8 @@ MoveBase::MoveBase()
   , default_goal_checker_type_{ "nav2_controller::SimpleGoalChecker" }
 
   , lp_loader_("nav2_core", "nav2_core::Controller")
-  , default_controller_ids_{ "PurePersuit" }
-  , default_controller_types_{ "pp_core::PPLocalPlanner" }
+  , default_controller_ids_{ "FollowPath" }
+  , default_controller_types_{ "teb_local_planner::TebLocalPlannerROS" }
 {
   // setup planner+global_costmap
   RCLCPP_INFO(get_logger(), "Creating Planner");
