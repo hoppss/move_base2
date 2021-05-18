@@ -54,6 +54,7 @@
 #include "move_base2/state.hpp"
 #include "move_base2/srv/navigate_to_pose.hpp"
 #include "move_base2/request_info.hpp"
+#include "move_base2/PointCost.hpp"
 
 namespace move_base
 {
@@ -104,6 +105,9 @@ protected:
   std::atomic_bool is_cancel_;
 
   bool is_shutdown_;  // flag for ctrl_c signal. make sure plan_thread_ exit
+
+  // set_mode
+  int navi_mode_;
 
   // service server
   rclcpp::Service<move_base2::srv::NavigateToPose>::SharedPtr service_handle_;
@@ -214,6 +218,7 @@ protected:
   std::string controller_ids_concat_, current_controller_;
 
   double controller_frequency_;
+  int period_;  // 100 multiper, in ms
   double min_x_velocity_threshold_;
   double min_y_velocity_threshold_;
   double min_theta_velocity_threshold_;
@@ -233,8 +238,6 @@ protected:
 public:
   void resetState();
 
-  // set_mode
-  int navi_mode_;
   rclcpp::Service<athena_interfaces::srv::NavMode>::SharedPtr get_mode_server_;
   rclcpp::Client<rcl_interfaces::srv::ListParameters>::SharedPtr param_client_;
 
@@ -245,6 +248,9 @@ public:
 
   // ns
   std::string ns_;
+
+  // obstacle detect
+  std::shared_ptr<PointCost> point_cost_;
 };
 
 }  // namespace move_base

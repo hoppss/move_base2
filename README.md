@@ -37,11 +37,16 @@ ros2 run move_base2  lifecycle_client
 
 ## rviz2发布目标点
 > move_base2 使用了/NaviTo service [move_base2::srv/NavigateToPose.srv]
+>
 > 新设计了rviz2 发布目标点插件，[rviz2_plugins](https://partner-gitlab.mioffice.cn/limao1/move_base2)
+>
 > 新打开rviz2，在菜单栏右侧，点击 + ， 选择 NaviToGoalTool
+>
+> 导航可参考的rviz配置文件可参考./rviz/*.rviz， 一个为仿真用，一个为实际机器人用;
 ```
 rviz2
 ```
+
 
 # 二、实际机器人运行
 

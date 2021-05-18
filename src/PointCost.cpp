@@ -1,0 +1,84 @@
+#include "move_base2/PointCost.hpp"
+
+namespace move_base
+{
+PointCost::PointCost()
+{
+  check_distance_ = 2.0;
+}
+
+void PointCost::initialize(const nav2_util::LifecycleNode::SharedPtr& nh,
+                           std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
+{
+  nh_ = nh;
+
+  costmap_ros_ = costmap_ros;
+  costmap_ = costmap_ros_->getCostmap();
+}
+
+unsigned char PointCost::getPointCost(const geometry_msgs::msg::PoseStamped& p)
+{
+  unsigned int cell_x, cell_y;
+  if (!costmap_->worldToMap(p.pose.position.x, p.pose.position.y, cell_x, cell_y))
+  {
+    RCLCPP_WARN(nh_->get_logger(), "PoseCost, costmap.worldToMap failed");
+    return nav2_costmap_2d::LETHAL_OBSTACLE;
+  }
+  unsigned char cost = costmap_->getCost(cell_x, cell_y);
+
+  return cost;
+}
+
+bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
+{
+  // 周期控制, 1s 检测一次，
+  static uint seq = 0;
+  if (seq++ % 10 != 0)
+    return true;
+
+  // 1. get robot pose
+  geometry_msgs::msg::PoseStamped current_pose;
+  if (!costmap_ros_->getRobotPose(current_pose))
+  {
+    RCLCPP_WARN(nh_->get_logger(), "PointCost, costmap get robotpose failed");
+    return false;
+  };
+
+  // 2. get closest index in ref path
+  int path_size = path.poses.size();
+
+  double closest_dist = 1e9;
+  int closest_index = 1;
+
+  for (int i = 1; i < path_size; i += 2)
+  {
+    double d = nav2_util::geometry_utils::euclidean_distance(current_pose, path.poses[i]);
+    if (d < closest_dist)
+    {
+      closest_dist = d;
+      closest_index = i;
+    }
+  }
+
+  int pre_index = closest_index;
+  double sum_dist = 0.0;
+
+  // 3. iterator to forward check pointcost
+  for (int i = closest_index + 1; i < path_size && sum_dist < check_distance_; i += 3)
+  {
+    sum_dist += nav2_util::geometry_utils::euclidean_distance(path.poses[pre_index], path.poses[i]);
+
+    unsigned char cost = getPointCost(path.poses[i]);
+
+    if (cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE || cost == nav2_costmap_2d::LETHAL_OBSTACLE)
+    {
+      RCLCPP_WARN(nh_->get_logger(), "PointCost, cost %d; dist %f, pose [%f, %f], let's replan", cost, sum_dist,
+                  path.poses[i].pose.position.x, path.poses[i].pose.position.y);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+}  // namespace move_base

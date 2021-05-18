@@ -83,6 +83,9 @@ MoveBase::MoveBase()
   // Launch a thread to run the costmap node, it's singleThreadExecutor
   global_costmap_thread_ = std::make_unique<nav2_util::NodeThread>(global_costmap_ros_);
 
+  // collisionfree check
+  point_cost_ = std::make_shared<move_base::PointCost>();
+
   plan_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::planThread, this));
 
   // Setup controller + local_costmap
@@ -163,18 +166,18 @@ void MoveBase::loop()
           continue;
         }
 
-        rclcpp::Time t = now();
-
-        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
-        {
-          run_planner_ = true;
-          planner_cond_.notify_one();
-          last_nofity_plan_time_ = now();
-          RCLCPP_INFO(get_logger(), "control cycle, replan");
-        }
+        // 1. use collsion_detect to decide global replan,
+        // 2. code in computeControl()
+        // rclcpp::Time t = now();
+        // if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
+        // {
+        //   run_planner_ = true;
+        //   planner_cond_.notify_one();
+        //   last_nofity_plan_time_ = now();
+        //   RCLCPP_INFO(get_logger(), "control cycle, replan");
+        // }
 
         computeControl();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
       break;
 
@@ -213,6 +216,7 @@ MoveBase::~MoveBase()
   {
     plan_thread_->join();
   }
+  point_cost_.reset();
 }
 
 nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& state)
@@ -308,7 +312,10 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   get_parameter("min_x_velocity_threshold", min_x_velocity_threshold_);
   get_parameter("min_y_velocity_threshold", min_y_velocity_threshold_);
   get_parameter("min_theta_velocity_threshold", min_theta_velocity_threshold_);
-  RCLCPP_INFO(get_logger(), "Controller frequency set to %.4fHz", controller_frequency_);
+
+  period_ = 1000 / controller_frequency_;
+
+  RCLCPP_INFO(get_logger(), "Controller frequency set to %.4fHz, period %d", controller_frequency_, period_);
 
   controller_costmap_ros_->on_configure(state);
 
@@ -386,6 +393,8 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
 
   global_costmap_ros_->on_activate(state);
   plan_publisher_->on_activate();
+
+  point_cost_->initialize(shared_from_this(), global_costmap_ros_);
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it)
@@ -496,6 +505,14 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
     RCLCPP_WARN(get_logger(), "NaviTo: unactive, please active lifecycle");
     response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, lifecycle is not active";
+    return;
+  }
+
+  if (request->planner_id.empty() || request->controller_id.empty())
+  {
+    RCLCPP_WARN(get_logger(), "NaviTo: empty request, ple input planner and controller id");
+    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    response->description = "request rejected, empty planner id, check dds?";
     return;
   }
 
@@ -637,7 +654,7 @@ bool MoveBase::findControllerId(const std::string& c_name, std::string& current_
 
 void MoveBase::computeControl()
 {
-  auto start = std::chrono::system_clock::now();
+  std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
   try
   {
@@ -695,14 +712,14 @@ void MoveBase::computeControl()
     }
 
     // whether cycle global plan, notify condition_variable
-    // rclcpp::Time t = now();
+    rclcpp::Time t = now();
 
-    // if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
-    // {
-    //   run_planner_ = true;
-    //   planner_cond_.notify_one();
-    //   last_nofity_plan_time_ = now();
-    // }
+    if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0 && !point_cost_->collisionFreeCheck(temp_path))
+    {
+      run_planner_ = true;
+      planner_cond_.notify_one();
+      last_nofity_plan_time_ = t;
+    }
 
     // get Twist
     geometry_msgs::msg::Twist twist = odom_sub_->getTwist();
@@ -712,14 +729,20 @@ void MoveBase::computeControl()
                 cmd_vel_2d.twist.angular.z);
     publishVelocity(cmd_vel_2d);
 
-    auto end = std::chrono::system_clock::now();
-    auto cost = std::chrono::duration_cast<std::chrono::seconds>(end - start);  // s
-    double time_used = cost.count();
-    if (time_used > 1.0 / controller_frequency_)
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    double time_span_in_ms = time_span.count() * 1000;
+    RCLCPP_INFO(get_logger(), "It took %f ms", time_span_in_ms);
+
+    if (time_span_in_ms >= period_)
     {
       RCLCPP_WARN(get_logger(), "Control loop missed its desired rate of %.4fHz, time_cost %f", controller_frequency_,
-                  cost.count());
+                  time_span_in_ms);
     }
+
+    int sleep_time = period_ - time_span_in_ms;
+    if (sleep_time < period_ && sleep_time > 10)
+      std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
   }
   catch (nav2_core::PlannerException& e)
   {
