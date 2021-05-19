@@ -659,7 +659,7 @@ void MoveBase::computeControl()
   try
   {
     // check whether or not update global plan
-    nav_msgs::msg::Path temp_path;
+    static nav_msgs::msg::Path temp_path;
     bool need_update_goal_checker = false;  // local flag
 
     {
@@ -719,6 +719,8 @@ void MoveBase::computeControl()
       run_planner_ = true;
       planner_cond_.notify_one();
       last_nofity_plan_time_ = t;
+
+      // possible optimal, prune global path
     }
 
     // get Twist
