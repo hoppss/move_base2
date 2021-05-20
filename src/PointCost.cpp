@@ -74,7 +74,7 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
                 current_pose.pose.position.y, path.poses[i].pose.position.x, path.poses[i].pose.position.y, (int)cost,
                 sum_dist);
 
-    if (cost >= 200 || cost <= nav2_costmap_2d::LETHAL_OBSTACLE)
+    if (cost >= 200 && cost <= nav2_costmap_2d::LETHAL_OBSTACLE)
     {
       RCLCPP_WARN(nh_->get_logger(), "PointCost, cost %d; dist %f, pose [%f, %f], let's replan", cost, sum_dist,
                   path.poses[i].pose.position.x, path.poses[i].pose.position.y);
