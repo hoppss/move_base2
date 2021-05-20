@@ -4,7 +4,7 @@ namespace move_base
 {
 PointCost::PointCost()
 {
-  check_distance_ = 2.0;
+  check_distance_ = 2.5;
 }
 
 void PointCost::initialize(const nav2_util::LifecycleNode::SharedPtr& nh,
@@ -33,7 +33,7 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
 {
   // 周期控制, 1s 检测一次，
   static uint seq = 0;
-  if (seq++ % 10 != 0)
+  if (seq++ % 2 != 0)
     return true;
 
   // 1. get robot pose
@@ -64,13 +64,14 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
   double sum_dist = 0.0;
 
   // 3. iterator to forward check pointcost
-  for (int i = closest_index + 1; i < path_size && sum_dist < check_distance_; i += 3)
+  for (int i = closest_index + 1; i < path_size && sum_dist < check_distance_; i += 1)
   {
     sum_dist += nav2_util::geometry_utils::euclidean_distance(path.poses[pre_index], path.poses[i]);
-
+    pre_index = i;
     unsigned char cost = getPointCost(path.poses[i]);
 
-    RCLCPP_INFO(nh_->get_logger(), "%d", (int)cost);
+    RCLCPP_INFO(nh_->get_logger(), "currpos [%f,%f], pos [%f,%f], cost %d, sum_dist %f", current_pose.pose.position.x,
+                current_pose.pose.position.y, path.poses[i].pose.position.x, path.poses[i].pose.position.y, (int)cost, sum_dist);
 
     if (cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE || cost == nav2_costmap_2d::LETHAL_OBSTACLE)
     {

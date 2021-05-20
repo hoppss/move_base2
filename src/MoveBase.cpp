@@ -158,7 +158,7 @@ void MoveBase::loop()
       break;
 
       case CONTROLLING: {
-        RCLCPP_INFO(get_logger(), "control cycle.....");
+        // RCLCPP_INFO(get_logger(), "control cycle.....");
         if (is_cancel_)
         {
           std::unique_lock<std::mutex> lock(planner_mutex_);
@@ -714,7 +714,7 @@ void MoveBase::computeControl()
     // whether cycle global plan, notify condition_variable
     rclcpp::Time t = now();
 
-    if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0 && !point_cost_->collisionFreeCheck(temp_path))
+    if (!point_cost_->collisionFreeCheck(temp_path))
     {
       run_planner_ = true;
       planner_cond_.notify_one();
@@ -727,14 +727,14 @@ void MoveBase::computeControl()
     geometry_msgs::msg::Twist twist = odom_sub_->getTwist();
     auto cmd_vel_2d = controllers_[current_controller_]->computeVelocityCommands(pose, twist);
 
-    RCLCPP_INFO(get_logger(), "Publishing velocity at time %.2f [%f,%f]", now().seconds(), cmd_vel_2d.twist.linear.x,
-                cmd_vel_2d.twist.angular.z);
     publishVelocity(cmd_vel_2d);
 
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
     double time_span_in_ms = time_span.count() * 1000;
-    RCLCPP_INFO(get_logger(), "It took %f ms", time_span_in_ms);
+
+    RCLCPP_INFO(get_logger(), "Publishing velocity at time %.2f [%f,%f], timecost %f", now().seconds(),
+                cmd_vel_2d.twist.linear.x, cmd_vel_2d.twist.angular.z, time_span_in_ms);
 
     if (time_span_in_ms >= period_)
     {
