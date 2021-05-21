@@ -150,8 +150,8 @@ void ReceiveGoalMb::timerCallback()
   if (nav2_util::geometry_utils::euclidean_distance(goal.pose, prev_pose_.pose) > 0.2)
   {
     //
-    req_->planner_id = "Straight2D";
-    req_->controller_id = "PurePersuit";
+    req_->planner_id = "DMP";
+    req_->controller_id = "FollowPath";
     req_->goal = goal;
 
     prev_pose_ = goal;  // save last tracking goal

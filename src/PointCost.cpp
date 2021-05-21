@@ -70,9 +70,11 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
     pre_index = i;
     unsigned char cost = getPointCost(path.poses[i]);
 
+    /*
     RCLCPP_INFO(nh_->get_logger(), "currpos [%f,%f], pos [%f,%f], cost %d, sum_dist %f", current_pose.pose.position.x,
                 current_pose.pose.position.y, path.poses[i].pose.position.x, path.poses[i].pose.position.y, (int)cost,
                 sum_dist);
+    */
 
     if (cost >= 200 && cost <= nav2_costmap_2d::LETHAL_OBSTACLE)
     {
