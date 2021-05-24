@@ -63,7 +63,7 @@ move_base_node:
       max_samples: 20
       max_global_plan_lookahead_dist: 1.5
       visualize_hc_graph: True
-      max_vel_x: 0.5
+      max_vel_x: 0.3
       max_vel_theta: 1.0
       acc_lim_x: 0.5
       acc_lim_theta: 1.0
@@ -124,7 +124,7 @@ global_costmap:
       robot_base_frame: base_link
       use_sim_time: True
       #robot_radius: 0.22
-      footprint: "[[0.36, 0.18], [0.36, -0.18], [-0.415, -0.18], [-0.415, 0.18]]"
+      footprint: "[[0.36, 0.25], [0.36, -0.25], [-0.415, -0.25], [-0.415, 0.25]]"
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "inflation_layer"]
