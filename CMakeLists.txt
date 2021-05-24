@@ -82,10 +82,10 @@ set(dependencies
 include_directories(include)
 
 ## srv
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/NavigateToPose.srv"
-  DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
-)
+# rosidl_generate_interfaces(${PROJECT_NAME}
+#   "srv/NavigateToPose.srv"
+#   DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
+# )
 
 ## node
 add_executable(move_base_node src/main.cpp  src/MoveBase.cpp src/PointCost.cpp)
@@ -95,7 +95,7 @@ target_include_directories(move_base_node PRIVATE
 
 ament_target_dependencies(move_base_node ${dependencies})
 target_compile_definitions(move_base_node PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS") # prevent pluginlib from using boost
-rosidl_target_interfaces(move_base_node ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
+# rosidl_target_interfaces(move_base_node ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
 
 
 #lifecycle_client
@@ -116,23 +116,18 @@ target_include_directories(navi_to_client PRIVATE
 
 ament_target_dependencies(navi_to_client ${dependencies})
 target_compile_definitions(navi_to_client PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS") # prevent pluginlib from using boost
-rosidl_target_interfaces(navi_to_client ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
-
 
 ## object tracking msg transfer
 add_executable(receive_goal_to_mb src/main_to_mb.cpp src/receive_goal_to_mb.cpp)
 ament_target_dependencies( receive_goal_to_mb  ${dependencies})
-rosidl_target_interfaces(receive_goal_to_mb ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
 
 ## costmap pub cycle test
 add_executable(test1 test/test.cpp)
 ament_target_dependencies(test1  ${dependencies})
-rosidl_target_interfaces(test1 ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
 
 ## costmap pub cycle test
 add_executable(portal test/namespace_portal.cpp)
 ament_target_dependencies(portal  ${dependencies})
-rosidl_target_interfaces(portal ${PROJECT_NAME} "rosidl_typesupport_cpp")  # 支持action定义的依赖性顺序
 
 ## install
 

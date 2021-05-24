@@ -13,7 +13,7 @@
 
 #include <nav2_util/lifecycle_node.hpp>
 
-#include "move_base2/srv/navigate_to_pose.hpp"
+#include "athena_interfaces/srv/navigate_to_pose.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
 namespace nav2_receive_goal
@@ -51,8 +51,8 @@ private:
   bool start_tracking_;
   geometry_msgs::msg::PoseStamped prev_pose_;
 
-  rclcpp::Client<move_base2::srv::NavigateToPose>::SharedPtr navi_to_client_;
-  std::shared_ptr<move_base2::srv::NavigateToPose::Request> req_;
+  rclcpp::Client<athena_interfaces::srv::NavigateToPose>::SharedPtr navi_to_client_;
+  std::shared_ptr<athena_interfaces::srv::NavigateToPose::Request> req_;
 
   std::mutex mutex_;
   std::vector<geometry_msgs::msg::PoseStamped> goals_vec_;

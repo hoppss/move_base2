@@ -381,7 +381,7 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
       "get_mode", std::bind(&MoveBase::getModeCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Finally, Create the action servers for path planning to a pose and through poses
-  service_handle_ = this->create_service<move_base2::srv::NavigateToPose>(
+  service_handle_ = this->create_service<athena_interfaces::srv::NavigateToPose>(
       "NaviTo", std::bind(&MoveBase::handleService, this, std::placeholders::_1, std::placeholders::_2));
 
   return nav2_util::CallbackReturn::SUCCESS;
@@ -482,8 +482,8 @@ nav2_util::CallbackReturn MoveBase::on_shutdown(const rclcpp_lifecycle::State&)
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPose::Request> request,
-                             std::shared_ptr<move_base2::srv::NavigateToPose::Response> response)
+void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::NavigateToPose::Request> request,
+                             std::shared_ptr<athena_interfaces::srv::NavigateToPose::Response> response)
 {
   // log
   RCLCPP_INFO(get_logger(), "NaviTo: planner [%s] controller [%s], pose [%f, %f]", request->planner_id.c_str(),
@@ -503,7 +503,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
   if (state_ == NavState::UNACTIVE)
   {
     RCLCPP_WARN(get_logger(), "NaviTo: unactive, please active lifecycle");
-    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, lifecycle is not active";
     return;
   }
@@ -511,7 +511,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
   if (request->planner_id.empty() || request->controller_id.empty())
   {
     RCLCPP_WARN(get_logger(), "NaviTo: empty request, ple input planner and controller id");
-    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, empty planner id, check dds?";
     return;
   }
@@ -536,7 +536,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
     lock.unlock();
 
     RCLCPP_ERROR(get_logger(), "NaviTo: failed to find controller-id");
-    response->result = move_base2::srv::NavigateToPose::Response::FAILTURE;
+    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, error controller_id";
     return;
   }
@@ -572,7 +572,7 @@ void MoveBase::handleService(const std::shared_ptr<move_base2::srv::NavigateToPo
   run_planner_ = true;
   planner_cond_.notify_one();  // before cv.notify(), run_planner_ must be true
 
-  response->result = move_base2::srv::NavigateToPose::Response::SUCCESS;
+  response->result = athena_interfaces::srv::NavigateToPose::Response::SUCCESS;
   response->description = "request received";
 }
 

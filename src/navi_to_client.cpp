@@ -1,6 +1,6 @@
 #include "rclcpp/rclcpp.hpp"
 
-#include "move_base2/srv/navigate_to_pose.hpp"
+#include "athena_interfaces/srv/navigate_to_pose.hpp"
 
 #include <chrono>
 #include <cstdlib>
@@ -22,13 +22,13 @@ int main(int argc, char** argv)
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "x[%f], y[%f]", x, y);
 
   std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("navi_to_client");
-  rclcpp::Client<move_base2::srv::NavigateToPose>::SharedPtr client =
-      node->create_client<move_base2::srv::NavigateToPose>("/NaviTo");
+  rclcpp::Client<athena_interfaces::srv::NavigateToPose>::SharedPtr client =
+      node->create_client<athena_interfaces::srv::NavigateToPose>("/NaviTo");
 
-  auto request = std::make_shared<move_base2::srv::NavigateToPose::Request>();
+  auto request = std::make_shared<athena_interfaces::srv::NavigateToPose::Request>();
 
   request->is_cancel = false;
-  // request->mode = move_base2::srv::NavigateToPose::Request::NAVI_MODE;
+  // request->mode = athena_interfaces::srv::NavigateToPose::Request::NAVI_MODE;
   request->planner_id = "GridBased";
   request->controller_id = "FollowPath";
 

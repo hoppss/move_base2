@@ -52,7 +52,7 @@
 #include "athena_interfaces/srv/nav_mode.hpp"
 
 #include "move_base2/state.hpp"
-#include "move_base2/srv/navigate_to_pose.hpp"
+#include "athena_interfaces/srv/navigate_to_pose.hpp"
 #include "move_base2/request_info.hpp"
 #include "move_base2/PointCost.hpp"
 
@@ -110,10 +110,10 @@ protected:
   int navi_mode_;
 
   // service server
-  rclcpp::Service<move_base2::srv::NavigateToPose>::SharedPtr service_handle_;
+  rclcpp::Service<athena_interfaces::srv::NavigateToPose>::SharedPtr service_handle_;
 
-  void handleService(const std::shared_ptr<move_base2::srv::NavigateToPose::Request> request,
-                     std::shared_ptr<move_base2::srv::NavigateToPose::Response> response);
+  void handleService(const std::shared_ptr<athena_interfaces::srv::NavigateToPose::Request> request,
+                     std::shared_ptr<athena_interfaces::srv::NavigateToPose::Response> response);
 
   std::queue<requestInfo> goals_queue_;
 
