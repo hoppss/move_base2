@@ -16,8 +16,8 @@ move_base_node:
 
     DMP:
       plugin: "dm_planner/DMPlanner"
-      tolerance: 0.5
       visualize: true
+      free_radius: 0.5
       search_radius: 1.0
       tracking_distance: 1.0
 
