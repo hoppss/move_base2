@@ -154,6 +154,16 @@ void MoveBase::loop()
           planner_cond_.notify_one();
           last_nofity_plan_time_ = now();
         }
+
+        double time_used = t.seconds() - last_valid_plan_time_.seconds();
+        if (time_used > 10.0)
+        {
+          RCLCPP_WARN(get_logger(), "planning, planner timeout %f, reset status", time_used);
+          std::unique_lock<std::mutex> lock(planner_mutex_);
+          resetState();
+          lock.unlock();
+          publishZeroVelocity();
+        }
       }
       break;
 
@@ -508,11 +518,11 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
     return;
   }
 
-  if (request->planner_id.empty() || request->controller_id.empty())
+  if (request->planner_id.empty() || request->controller_id.empty() || request->goal.header.frame_id.empty())
   {
     RCLCPP_WARN(get_logger(), "NaviTo: empty request, ple input planner and controller id");
     response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
-    response->description = "request rejected, empty planner id, check dds?";
+    response->description = "request rejected, empty planner/controller/empty id, check dds?";
     return;
   }
 
@@ -522,6 +532,15 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   req.planner_id = request->planner_id;
   req.controller_id = request->controller_id;
   req.goal = request->goal;
+  req.goal.header.stamp = now();
+
+  if (!transformPose("map", req.goal, req.goal))
+  {
+    RCLCPP_WARN(get_logger(), "NaviTo: request goal transform to map frame failed");
+    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
+    response->description = "request failed, transform goal to map frame failed!";
+    return;
+  }
 
   std::string c_name = request->controller_id;
   std::string current_controller;
@@ -541,12 +560,13 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
     return;
   }
 
+  last_valid_plan_time_ = now();
+  last_valid_control_time_ = now();
+
   // idle status
   if (state_ == NavState::READY)
   {
     state_ = PLANNING;
-    last_valid_plan_time_ = now();
-    last_valid_control_time_ = now();
 
     progress_checker_->reset();
     // publishZeroVelocity();
@@ -556,8 +576,6 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   if (state_ == NavState::CONTROLLING)
   {
     state_ = PLANNING;
-    last_valid_plan_time_ = now();
-    last_valid_control_time_ = now();
 
     progress_checker_->reset();
     // publishZeroVelocity();
@@ -751,6 +769,7 @@ void MoveBase::computeControl()
     RCLCPP_ERROR(this->get_logger(), e.what());
     publishZeroVelocity();
     state_ = NavState::PLANNING;
+    last_valid_plan_time_ = now();
   }
 
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
@@ -890,16 +909,16 @@ void MoveBase::planThread()
                   " path to (%.2f, %.2f)",
                   current_request_.planner_id.c_str(), current_request_.goal.pose.position.x,
                   current_request_.goal.pose.position.y);
-      double time_used = now().seconds() - last_valid_plan_time_.seconds();
-      if (time_used > 10.0)
-      {
-        RCLCPP_WARN(get_logger(), "plan_thread: planner timeout %f, reset status", time_used);
-        std::unique_lock<std::mutex> lock(planner_mutex_);
-        resetState();
-        lock.unlock();
+      // double time_used = now().seconds() - last_valid_plan_time_.seconds();
+      // if (time_used > 10.0)
+      // {
+      //   RCLCPP_WARN(get_logger(), "plan_thread: planner timeout %f, reset status", time_used);
+      //   std::unique_lock<std::mutex> lock(planner_mutex_);
+      //   resetState();
+      //   lock.unlock();
 
-        // publishZeroVelocity();
-      }
+      //   // publishZeroVelocity();
+      // }
       continue;
     }
     else
@@ -1011,6 +1030,27 @@ bool MoveBase::setControllerTrackingMode(bool enable)
   //    future.get()->results.front().successful);
 
   return true;
+}
+
+bool MoveBase::transformPose(const std::string& frame, const geometry_msgs::msg::PoseStamped& in_pose,
+                             geometry_msgs::msg::PoseStamped& out_pose)
+{
+  if (in_pose.header.frame_id == frame)
+  {
+    out_pose = in_pose;
+    return true;
+  }
+
+  try
+  {
+    tf_->transform(in_pose, out_pose, frame);
+    return true;
+  }
+  catch (tf2::TransformException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "Exception in transformPose: %s", ex.what());
+    return false;
+  }
 }
 
 }  // namespace move_base

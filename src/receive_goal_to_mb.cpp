@@ -14,7 +14,7 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
 //: nav2_util::LifecycleNode("receive_goal", "", true)
 {
   declare_parameter("target_frame", rclcpp::ParameterValue("map"));
-  declare_parameter("transform_tolerance", rclcpp::ParameterValue(1.0));
+  declare_parameter("transform_tolerance", rclcpp::ParameterValue(0.0));
   get_parameter("target_frame", target_frame_);
   get_parameter("transform_tolerance", transform_tolerance_);
 
