@@ -761,8 +761,10 @@ void MoveBase::computeControl()
     }
 
     int sleep_time = period_ - time_span_in_ms;
-    if (sleep_time < period_ && sleep_time > 10)
+    if (time_span_in_ms < period_ && sleep_time > 10)
       std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+    else
+      std::this_thread::sleep_for(std::chrono::milliseconds(30));
   }
   catch (nav2_core::PlannerException& e)
   {
