@@ -96,8 +96,13 @@ ReceiveGoalMb::~ReceiveGoalMb()
 void ReceiveGoalMb::srcPoseHandle(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
   RCLCPP_INFO(this->get_logger(), "tracking_pose, in");
+  geometry_msgs::msg::PoseStamped src_pose;
+  src_pose = *msg;
+  src_pose.header.stamp.sec = 0;
+  src_pose.header.stamp.nanosec = 0;
+
   geometry_msgs::msg::PoseStamped tar_pose;
-  if (false == transformPose(target_frame_, *msg, tar_pose))
+  if (false == transformPose(target_frame_, src_pose, tar_pose))
   {
     RCLCPP_ERROR(this->get_logger(), "tracking_pose, transform pose failed");
     return;
@@ -123,11 +128,27 @@ bool ReceiveGoalMb::transformPose(const std::string& frame, const geometry_msgs:
     tf_buffer_->transform(in_pose, out_pose, frame, tf2::durationFromSec(transform_tolerance_));
     return true;
   }
+  catch (tf2::LookupException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "No Transform available Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::ConnectivityException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "Connectivity Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::ExtrapolationException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "Extrapolation Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::TimeoutException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "Transform timeout with tolerance");
+  }
   catch (tf2::TransformException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Exception in transformPose: %s", ex.what());
-    return false;
+    RCLCPP_ERROR(get_logger(), "Failed to transform");
   }
+  return false;
 }
 
 void ReceiveGoalMb::timerCallback()

@@ -532,7 +532,8 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   req.planner_id = request->planner_id;
   req.controller_id = request->controller_id;
   req.goal = request->goal;
-  req.goal.header.stamp = now();
+  req.goal.header.stamp.sec = 0;
+  req.goal.header.stamp.nanosec = 0;
 
   if (!transformPose("map", req.goal, req.goal))
   {
@@ -772,6 +773,7 @@ void MoveBase::computeControl()
     publishZeroVelocity();
     state_ = NavState::PLANNING;
     last_valid_plan_time_ = now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
 
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
@@ -1045,14 +1047,32 @@ bool MoveBase::transformPose(const std::string& frame, const geometry_msgs::msg:
 
   try
   {
+    RCLCPP_INFO(get_logger(), "--");
     tf_->transform(in_pose, out_pose, frame);
     return true;
   }
+  catch (tf2::LookupException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "No Transform available Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::ConnectivityException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "Connectivity Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::ExtrapolationException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "Extrapolation Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::TimeoutException& ex)
+  {
+    RCLCPP_ERROR(get_logger(), "Transform timeout with tolerance");
+  }
   catch (tf2::TransformException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Exception in transformPose: %s", ex.what());
-    return false;
+    RCLCPP_ERROR(get_logger(), "Failed to transform");
   }
+
+  return false;
 }
 
 }  // namespace move_base
