@@ -16,7 +16,7 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
   declare_parameter("target_frame", rclcpp::ParameterValue("map"));
   declare_parameter("transform_tolerance", rclcpp::ParameterValue(0.0));
   get_parameter("target_frame", target_frame_);
-  get_parameter("transform_tolerance", transform_tolerance_);
+  // get_parameter("transform_tolerance", transform_tolerance_);
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   auto timer_interface =
@@ -114,10 +114,10 @@ void ReceiveGoalMb::srcPoseHandle(const geometry_msgs::msg::PoseStamped::SharedP
   publishMarker(tar_pose);
 }
 
-bool ReceiveGoalMb::transformPose(const std::string& frame, const geometry_msgs::msg::PoseStamped& in_pose,
+bool ReceiveGoalMb::transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
                                   geometry_msgs::msg::PoseStamped& out_pose)
 {
-  if (in_pose.header.frame_id == frame)
+  if (in_pose.header.frame_id == target_frame)
   {
     out_pose = in_pose;
     return true;
@@ -125,28 +125,31 @@ bool ReceiveGoalMb::transformPose(const std::string& frame, const geometry_msgs:
 
   try
   {
-    tf_buffer_->transform(in_pose, out_pose, frame, tf2::durationFromSec(transform_tolerance_));
+    auto copy_in_pose = in_pose;
+    copy_in_pose.header.stamp = rclcpp::Time();
+
+    out_pose = tf_buffer_->transform(copy_in_pose, target_frame);
     return true;
   }
   catch (tf2::LookupException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "No Transform available Error looking up robot pose: %s\n", ex.what());
+    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: No Transform available Error looking up robot pose: %s\n", ex.what());
   }
   catch (tf2::ConnectivityException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Connectivity Error looking up robot pose: %s\n", ex.what());
+    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Connectivity Error looking up robot pose: %s\n", ex.what());
   }
   catch (tf2::ExtrapolationException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Extrapolation Error looking up robot pose: %s\n", ex.what());
+    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Extrapolation Error looking up robot pose: %s\n", ex.what());
   }
   catch (tf2::TimeoutException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Transform timeout with tolerance");
+    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Transform timeout with tolerance, %s", ex.what());
   }
   catch (tf2::TransformException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Failed to transform");
+    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Failed to transform %s", ex.what());
   }
   return false;
 }
@@ -176,6 +179,7 @@ void ReceiveGoalMb::timerCallback()
     req_->goal = goal;
 
     prev_pose_ = goal;  // save last tracking goal
+    publishMarker(prev_pose_, 100);
 
     // define async callback function
     auto response_received_callback =
@@ -198,7 +202,7 @@ void ReceiveGoalMb::timerCallback()
   }
 }
 
-void ReceiveGoalMb::publishMarker(geometry_msgs::msg::PoseStamped& pose)
+void ReceiveGoalMb::publishMarker(geometry_msgs::msg::PoseStamped& pose, int type)
 {
   visualization_msgs::msg::Marker marker;
   marker.header = pose.header;
@@ -218,6 +222,13 @@ void ReceiveGoalMb::publishMarker(geometry_msgs::msg::PoseStamped& pose)
 
   marker.lifetime.sec = 0;
   marker.lifetime.nanosec = 0;
+
+  if (type != 1)
+  {
+    marker.id = 100;
+    marker.color.g = 0;
+    marker.color.r = 1;
+  }
 
   tracking_marker_pub_->publish(marker);
 }

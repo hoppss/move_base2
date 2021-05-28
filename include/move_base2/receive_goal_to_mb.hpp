@@ -35,7 +35,7 @@ public:
 private:
   void srcPoseHandle(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
-  bool transformPose(const std::string& frame, const geometry_msgs::msg::PoseStamped& in_pose,
+  bool transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
                      geometry_msgs::msg::PoseStamped& out_pose);
 
   // rclcpp_lifecycle::LifecyclePublisher< geometry_msgs::msg::PoseStamped>::SharedPtr tar_pose_pub_;
@@ -46,7 +46,7 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::string target_frame_;
 
-  double transform_tolerance_;
+  // double transform_tolerance_;  // set in_pose stamp to zero, use zero timeout for latest tf data
 
   bool start_tracking_;
   geometry_msgs::msg::PoseStamped prev_pose_;
@@ -60,7 +60,7 @@ private:
   void timerCallback();
 
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr tracking_marker_pub_;
-  void publishMarker(geometry_msgs::msg::PoseStamped& pose);
+  void publishMarker(geometry_msgs::msg::PoseStamped& pose, int type = 1);
 };
 
 }  // namespace nav2_receive_goal

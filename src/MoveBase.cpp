@@ -532,8 +532,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   req.planner_id = request->planner_id;
   req.controller_id = request->controller_id;
   req.goal = request->goal;
-  req.goal.header.stamp.sec = 0;
-  req.goal.header.stamp.nanosec = 0;
+  req.goal.header.stamp = rclcpp::Time();
 
   if (!transformPose("map", req.goal, req.goal))
   {
@@ -699,7 +698,8 @@ void MoveBase::computeControl()
 
       auto end_pose = temp_path.poses.back();
       end_pose.header.frame_id = temp_path.header.frame_id;
-      rclcpp::Duration tolerance(1e9);
+      end_pose.header.stamp = rclcpp::Time();
+      rclcpp::Duration tolerance(rclcpp::Duration::from_seconds(controller_costmap_ros_->getTransformTolerance()));
       nav_2d_utils::transformPose(tf_, controller_costmap_ros_->getGlobalFrameID(), end_pose, end_pose, tolerance);
       goal_checker_->reset();
 
@@ -1036,10 +1036,10 @@ bool MoveBase::setControllerTrackingMode(bool enable)
   return true;
 }
 
-bool MoveBase::transformPose(const std::string& frame, const geometry_msgs::msg::PoseStamped& in_pose,
+bool MoveBase::transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
                              geometry_msgs::msg::PoseStamped& out_pose)
 {
-  if (in_pose.header.frame_id == frame)
+  if (in_pose.header.frame_id == target_frame)
   {
     out_pose = in_pose;
     return true;
@@ -1047,29 +1047,30 @@ bool MoveBase::transformPose(const std::string& frame, const geometry_msgs::msg:
 
   try
   {
-    RCLCPP_INFO(get_logger(), "--");
-    tf_->transform(in_pose, out_pose, frame);
+    auto copy_in_pose = in_pose;
+    copy_in_pose.header.stamp = rclcpp::Time();
+    out_pose = tf_->transform(in_pose, target_frame);
     return true;
   }
   catch (tf2::LookupException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "No Transform available Error looking up robot pose: %s\n", ex.what());
+    RCLCPP_ERROR(get_logger(), "transformPose: No Transform available Error looking up robot pose: %s\n", ex.what());
   }
   catch (tf2::ConnectivityException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Connectivity Error looking up robot pose: %s\n", ex.what());
+    RCLCPP_ERROR(get_logger(), "transformPose: Connectivity Error looking up robot pose: %s\n", ex.what());
   }
   catch (tf2::ExtrapolationException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Extrapolation Error looking up robot pose: %s\n", ex.what());
+    RCLCPP_ERROR(get_logger(), "transformPose: Extrapolation Error looking up robot pose: %s\n", ex.what());
   }
   catch (tf2::TimeoutException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Transform timeout with tolerance");
+    RCLCPP_ERROR(get_logger(), "transformPose: Transform timeout with tolerance%s", ex.what());
   }
   catch (tf2::TransformException& ex)
   {
-    RCLCPP_ERROR(get_logger(), "Failed to transform");
+    RCLCPP_ERROR(get_logger(), "transformPose: Failed to transform");
   }
 
   return false;

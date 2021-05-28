@@ -252,7 +252,7 @@ public:
   // obstacle detect
   std::shared_ptr<PointCost> point_cost_;
 
-  bool transformPose(const std::string& frame, const geometry_msgs::msg::PoseStamped& in_pose,
+  bool transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
                      geometry_msgs::msg::PoseStamped& out_pose);
 };
 
