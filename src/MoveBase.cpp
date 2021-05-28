@@ -496,11 +496,11 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
                              std::shared_ptr<athena_interfaces::srv::NavigateToPose::Response> response)
 {
   // log
-  RCLCPP_INFO(get_logger(), "NaviTo: planner [%s] controller [%s], pose [%f, %f]", request->planner_id.c_str(),
-              request->controller_id.c_str(), request->goal.pose.position.x, request->goal.pose.position.y);
-
-  RCLCPP_INFO(get_logger(), "NaviTo: is_cancel [%d], goals_queue size [%d]", (int)request->is_cancel,
-              goals_queue_.size());
+  RCLCPP_INFO(get_logger(),
+              "NaviTo: planner [%s] controller [%s], pose [%f, %f], is_cancel [%d],\
+              goals_queue_size [%d] ",
+              request->planner_id.c_str(), request->controller_id.c_str(), request->goal.pose.position.x,
+              request->goal.pose.position.y, (int)request->is_cancel, goals_queue_.size());
 
   // check is_cancel
   if (request->is_cancel)
@@ -575,7 +575,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   // receive new goal ???
   if (state_ == NavState::CONTROLLING)
   {
-    state_ = PLANNING;
+    // state_ = PLANNING;
 
     progress_checker_->reset();
     // publishZeroVelocity();
@@ -927,11 +927,8 @@ void MoveBase::planThread()
     }
     else
     {
-      RCLCPP_INFO(get_logger(), "planner_thread: Found valid path of size %lu to (%.2f, %.2f)", path.poses.size(),
-                  goal.pose.position.x, goal.pose.position.y);
-
-      // Publish the plan for visualization purposes
-      RCLCPP_INFO(get_logger(), "planner_thread: publish path");
+      RCLCPP_INFO(get_logger(), "planner_thread: Found valid path of size %lu to (%.2f, %.2f), publish",
+                  path.poses.size(), goal.pose.position.x, goal.pose.position.y);
 
       publishPlan(path);
       last_global_plan_ = path;
