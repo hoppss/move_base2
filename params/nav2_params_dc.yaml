@@ -3,16 +3,12 @@ move_base_node:
     # planner
     expected_planner_frequency: 20.0
     use_sim_time: True
-    planner_plugins: ["GridBased", "Straight2D", "DMP"]
+    planner_plugins: ["GridBased", "DMP"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
       use_astar: false
       allow_unknown: true
-
-    Straight2D:
-      plugin: "nav2_straight_planner/StraightPlanner"
-      tolerance: 0.5
 
     DMP:
       plugin: "dm_planner/DMPlanner"
@@ -28,24 +24,8 @@ move_base_node:
     min_theta_velocity_threshold: 0.001
     progress_checker_plugin: "progress_checker"
     goal_checker_plugin: "simple_goal_checker"
-    controller_plugins: ["PurePersuit", "FollowPath"]
+    controller_plugins: ["FollowPath"]
     odom_topic: odom_chassis
-
-    PurePersuit:
-      plugin: "pp_core::PPLocalPlanner"
-      tracking_mode: false
-      tracking_distance: 1.0
-      use_local_planner: false
-      max_trans_vel: 0.5
-      max_trans_acc: 0.5
-      max_rot_vel: 1.0
-      max_rot_acc: 0.5
-      brake_angle: 0.5
-      brake_distance: 0.5
-      lookahead_distance: 0.5
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.10
-      transform_tolerance: 1.0
 
     FollowPath:
       plugin: "teb_local_planner::TebLocalPlannerROS"
@@ -74,7 +54,7 @@ move_base_node:
       weight_inflation: 10.
       control_look_ahead_poses: 2
       #obstacle_association_force_inclusion_factor: 1.0
-
+      force_reinit_new_goal_dist: 0.5
 
 
     # Progress checker parameters
