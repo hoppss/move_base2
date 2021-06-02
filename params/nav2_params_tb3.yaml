@@ -1,0 +1,153 @@
+move_base_node:
+  ros__parameters:
+    # planner
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased", "DMP"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: false
+      allow_unknown: true
+
+    DMP:
+      plugin: "dm_planner/DMPlanner"
+      visualize: true
+      free_radius: 0.5
+      search_radius: 1.0
+      tracking_distance: 1.0
+
+    # controller
+    controller_frequency: 10.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugin: "simple_goal_checker"
+    controller_plugins: ["FollowPath"]
+    odom_topic: odom
+
+    FollowPath:
+      plugin: "teb_local_planner::TebLocalPlannerROS"
+      footprint_model.type: polygon
+      footprint_model.vertices: "[[0.22, 0.22], [0.22, -0.22], [-0.22, -0.22], [-0.22, 0.22]]"
+      min_obstacle_dist: 0.05
+      inflation_dist: 0.1
+      #costmap_converter_plugin: "costmap_converter::CostmapToLinesDBSRANSAC"
+      costmap_converter_plugin: ""
+      #costmap_converter_spin_thread: True
+      #costmap_converter_rate: 2
+      include_costmap_obstacles: True
+      enable_homotopy_class_planning: False
+      enable_multithreading: True
+      optimization_verbose: False
+      min_samples: 3
+      max_samples: 20
+      max_global_plan_lookahead_dist: 1.5
+      visualize_hc_graph: True
+      max_vel_x: 0.3
+      max_vel_theta: 1.0
+      acc_lim_x: 0.5
+      acc_lim_theta: 1.0
+      teb_autosize: True
+      weight_kinematics_forward_drive: 1000.
+      weight_inflation: 10.
+      control_look_ahead_poses: 2
+      #obstacle_association_force_inclusion_factor: 1.0
+      force_reinit_new_goal_dist: 0.5
+
+    # Progress checker parameters
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 60.0
+    # Goal checker parameters
+    simple_goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.5
+      yaw_goal_tolerance: 0.2
+      stateful: True
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 1.0
+      transform_tolerance: .0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: True
+      rolling_window: true
+      width: 5
+      height: 5
+      resolution: 0.05
+      robot_radius: 0.22
+      #footprint: "[[0.36, 0.18], [0.36, -0.18], [-0.415, -0.18], [-0.415, 0.18]]"
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 10.0
+        inflation_radius: 0.55
+        inflate_unknown: true
+
+      always_send_full_costmap: True
+      observation_sources: scan
+
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 1.0
+      transform_tolerance: .0
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: True
+      robot_radius: 0.22
+      #footprint: "[[0.36, 0.25], [0.36, -0.25], [-0.415, -0.25], [-0.415, 0.25]]"
+      resolution: 0.05
+      track_unknown_space: true
+
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 10.0
+        inflation_radius: 0.55
+        inflate_unknown: true
+
+      always_send_full_costmap: True
+      observation_sources: scan

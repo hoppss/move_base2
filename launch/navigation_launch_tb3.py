@@ -50,7 +50,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument(
             'nav_params_file',
-            default_value=os.path.join(bringup_dir, 'params', 'nav2_params_dc.yaml'),
+            default_value=os.path.join(bringup_dir, 'params', 'nav2_params_tb3.yaml'),
             description='Full path to the ROS2 parameters file to use'),
 
         Node(

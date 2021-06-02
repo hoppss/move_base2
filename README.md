@@ -26,8 +26,8 @@ ros2 run move_base2 move_base_node --ros-args --params-file ~/dd_ws/src/move_bas
 ```
 or
 ```
-## 参数为params/nav2_params_dc.yaml， 仿真和实际机器人使用参数一致
-ros2 launch move_base2 navigation_launch_dc.py
+## 参数为params/nav2_params_tb3.yaml， 仿真和实际机器人使用参数一致, 区别在于模型tb3
+ros2 launch move_base2 navigation_launch_tb3.py
 ```
 
 ## move_base2 lifecycle 激活
@@ -52,8 +52,7 @@ rviz2
 
 ## 启动导航包launch
 ```
-# 01. 先启动别的部分， tracking_base.py 是我自己搞的， 以系统为准
-# ros2 launch move_base2 tracking_base.py
+# 01. 先启动别的部分， 以实际为准
 # 02. 启动导航launch
 ros2 launch move_base2 tracking_launch_mb.py
 ```
