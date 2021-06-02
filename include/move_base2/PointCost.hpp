@@ -25,7 +25,7 @@ public:
 
   unsigned char getPointCost(const geometry_msgs::msg::PoseStamped& p);
 
-  bool collisionFreeCheck(const nav_msgs::msg::Path& path);  // false is collision
+  bool collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_dist);  // false is collision
 
 private:
   nav2_util::LifecycleNode::SharedPtr nh_;

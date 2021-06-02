@@ -29,12 +29,12 @@ unsigned char PointCost::getPointCost(const geometry_msgs::msg::PoseStamped& p)
   return cost;
 }
 
-bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
+bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_dist)
 {
   // 周期控制, 1s 检测一次，
-  static uint seq = 0;
-  if (seq++ % 2 != 0)
-    return true;
+  // static uint seq = 0;
+  // if (seq++ % 2 != 0)
+  //   return true;
 
   // 1. get robot pose
   geometry_msgs::msg::PoseStamped current_pose;
@@ -61,7 +61,6 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
   }
 
   int pre_index = closest_index;
-  double sum_dist = 0.0;
 
   // 3. iterator to forward check pointcost
   for (int i = closest_index + 1; i < path_size && sum_dist < check_distance_; i += 1)
@@ -75,10 +74,16 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path)
                 current_pose.pose.position.y, path.poses[i].pose.position.x, path.poses[i].pose.position.y, (int)cost,
                 sum_dist);
     */
-
-    if (cost >= 200 && cost <= nav2_costmap_2d::LETHAL_OBSTACLE)
+    if (sum_dist < 1.0 &&
+        (cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE || cost == nav2_costmap_2d::LETHAL_OBSTACLE))
     {
-      RCLCPP_WARN(nh_->get_logger(), "PointCost, cost %d; dist %f, pose [%f, %f], let's replan", cost, sum_dist,
+      RCLCPP_WARN(nh_->get_logger(), "PointCost-Neighbor, cost %d; dist %f, pose [%f, %f], let's replan", cost,
+                  sum_dist, path.poses[i].pose.position.x, path.poses[i].pose.position.y);
+      return false;
+    }
+    else if (cost >= 200 && cost <= nav2_costmap_2d::LETHAL_OBSTACLE)
+    {
+      RCLCPP_WARN(nh_->get_logger(), "PointCost-Remote, cost %d; dist %f, pose [%f, %f], let's replan", cost, sum_dist,
                   path.poses[i].pose.position.x, path.poses[i].pose.position.y);
       return false;
     }

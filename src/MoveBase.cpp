@@ -141,8 +141,13 @@ void MoveBase::loop()
       case PLANNING: {
         if (is_cancel_)
         {
-          std::unique_lock<std::mutex> lock(planner_mutex_);
-          state_ = NavState::STOPPING;
+          publishZeroVelocity();
+
+          {
+            std::unique_lock<std::mutex> lock(planner_mutex_);
+            state_ = NavState::READY;
+          }
+          publishZeroVelocity();
           continue;
         }
 
@@ -193,8 +198,10 @@ void MoveBase::loop()
 
       case STOPPING: {
         publishZeroVelocity();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         std::unique_lock<std::mutex> lock(planner_mutex_);
-        resetState();
+        state_ = NavState::PLANNING;
+        last_valid_plan_time_ = now();
       }
       break;
 
@@ -581,6 +588,11 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
     // publishZeroVelocity();
   }
 
+  if (state_ == NavState::STOPPING)
+  {
+    progress_checker_->reset();
+  }
+
   {
     std::unique_lock<std::mutex> lock(planner_mutex_);
     goals_queue_.push(req);
@@ -732,12 +744,23 @@ void MoveBase::computeControl()
 
     // whether cycle global plan, notify condition_variable
     rclcpp::Time t = now();
-
-    if (!point_cost_->collisionFreeCheck(temp_path))
+    double sum_dist = 0.0;
+    if (!point_cost_->collisionFreeCheck(temp_path, sum_dist))
     {
-      run_planner_ = true;
-      planner_cond_.notify_one();
-      last_nofity_plan_time_ = t;
+      if (sum_dist <= 1.0 && sum_dist > 0)
+      {
+        RCLCPP_WARN(get_logger(), "controller: Pre-ObsDetect, dist %f, STOPPING", sum_dist);
+        publishZeroVelocity();
+        state_ = NavState::STOPPING;
+        return;
+      }
+      else
+      {
+        RCLCPP_WARN(get_logger(), "controller: Remote-ObsDetect, dist %f, REPLAN", sum_dist);
+        run_planner_ = true;
+        planner_cond_.notify_one();
+        last_nofity_plan_time_ = t;
+      }
 
       // possible optimal, prune global path
     }
@@ -771,9 +794,7 @@ void MoveBase::computeControl()
   {
     RCLCPP_ERROR(this->get_logger(), e.what());
     publishZeroVelocity();
-    state_ = NavState::PLANNING;
-    last_valid_plan_time_ = now();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    state_ = NavState::STOPPING;
   }
 
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
