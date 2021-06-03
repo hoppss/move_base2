@@ -145,7 +145,7 @@ void MoveBase::loop()
 
           {
             std::unique_lock<std::mutex> lock(planner_mutex_);
-            state_ = NavState::READY;
+            state_ = NavState::STOPPING;
           }
           publishZeroVelocity();
           continue;
@@ -153,7 +153,7 @@ void MoveBase::loop()
 
         rclcpp::Time t = now();
 
-        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 1.0)
+        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 0.5)
         {
           run_planner_ = true;
           planner_cond_.notify_one();
@@ -196,12 +196,19 @@ void MoveBase::loop()
       }
       break;
 
-      case STOPPING: {
+      case WAITING: {
         publishZeroVelocity();
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         std::unique_lock<std::mutex> lock(planner_mutex_);
         state_ = NavState::PLANNING;
         last_valid_plan_time_ = now();
+      }
+      break;
+
+      case STOPPING: {
+        publishZeroVelocity();
+        std::unique_lock<std::mutex> lock(planner_mutex_);
+        resetState();
       }
       break;
 
@@ -234,6 +241,9 @@ MoveBase::~MoveBase()
     plan_thread_->join();
   }
   point_cost_.reset();
+
+  tracking_pose_sub_.reset();
+  tracking_marker_pub_.reset();
 }
 
 nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& state)
@@ -401,6 +411,14 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   service_handle_ = this->create_service<athena_interfaces::srv::NavigateToPose>(
       "NaviTo", std::bind(&MoveBase::handleService, this, std::placeholders::_1, std::placeholders::_2));
 
+  // tracking server
+  rclcpp::SensorDataQoS sub_qos;
+  sub_qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+  tracking_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+      "tracking_pose", sub_qos, std::bind(&MoveBase::trackingPoseCallback, this, std::placeholders::_1));
+
+  tracking_marker_pub_ = create_publisher<visualization_msgs::msg::Marker>("tracking_marker", 10);
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -426,6 +444,8 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
     c_it->second->activate();
   }
   vel_publisher_->on_activate();
+
+  tracking_marker_pub_->on_activate();
 
   state_ = READY;
 
@@ -455,6 +475,7 @@ nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State&
 
   publishZeroVelocity();
   vel_publisher_->on_deactivate();
+  tracking_marker_pub_->on_deactivate();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -489,6 +510,7 @@ nav2_util::CallbackReturn MoveBase::on_cleanup(const rclcpp_lifecycle::State& st
   odom_sub_.reset();
   vel_publisher_.reset();
   goal_checker_->reset();
+  tracking_marker_pub_.reset();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -558,7 +580,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   else
   {
     std::unique_lock<std::mutex> lock(planner_mutex_);
-    state_ = NavState::STOPPING;
+    state_ = NavState::READY;
     lock.unlock();
 
     RCLCPP_ERROR(get_logger(), "NaviTo: failed to find controller-id");
@@ -580,7 +602,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   }
 
   // receive new goal ???
-  if (state_ == NavState::CONTROLLING)
+  else if (state_ == NavState::CONTROLLING)
   {
     // state_ = PLANNING;
 
@@ -588,7 +610,12 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
     // publishZeroVelocity();
   }
 
-  if (state_ == NavState::STOPPING)
+  else if (state_ == NavState::STOPPING)
+  {
+    progress_checker_->reset();
+  }
+
+  else if (state_ == NavState::WAITING)
   {
     progress_checker_->reset();
   }
@@ -749,20 +776,25 @@ void MoveBase::computeControl()
     {
       if (sum_dist <= 1.0 && sum_dist > 0)
       {
-        RCLCPP_WARN(get_logger(), "controller: Pre-ObsDetect, dist %f, STOPPING", sum_dist);
+        RCLCPP_WARN(get_logger(), "controller: Front-Close-ObsDetect, dist %f, STOPPING", sum_dist);
         publishZeroVelocity();
-        state_ = NavState::STOPPING;
+        state_ = NavState::WAITING;
         return;
       }
       else
       {
-        RCLCPP_WARN(get_logger(), "controller: Remote-ObsDetect, dist %f, REPLAN", sum_dist);
+        RCLCPP_WARN(get_logger(), "controller: Front-Remote-ObsDetect, dist %f, REPLAN", sum_dist);
         run_planner_ = true;
         planner_cond_.notify_one();
         last_nofity_plan_time_ = t;
+        last_valid_plan_time_ = t;
       }
 
       // possible optimal, prune global path
+    }
+    else
+    {
+      updateTrackingGoal();
     }
 
     // get Twist
@@ -794,7 +826,7 @@ void MoveBase::computeControl()
   {
     RCLCPP_ERROR(this->get_logger(), e.what());
     publishZeroVelocity();
-    state_ = NavState::STOPPING;
+    state_ = NavState::WAITING;
   }
 
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
@@ -924,7 +956,16 @@ void MoveBase::planThread()
       }
     }
 
+    if (navi_mode_ == NavMode::NavMode_Track)
+    {
+      pre_tracking_pose_ = current_request_.goal;
+      publishMarker(pre_tracking_pose_, 100);
+    }
+
     geometry_msgs::msg::PoseStamped goal = current_request_.goal;
+    // RCLCPP_INFO(get_logger(), "planner_thread: current_request planner %s, controller %s",
+    //             current_request_.planner_id.c_str(), current_request_.controller_id.c_str());
+
     nav_msgs::msg::Path path = getPlan(start, goal, current_request_.planner_id);
 
     if (path.poses.size() == 0)
@@ -961,6 +1002,8 @@ void MoveBase::planThread()
         state_ = NavState::CONTROLLING;
         progress_checker_->reset();
       }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
   }
 }
@@ -999,26 +1042,26 @@ void MoveBase::getModeCallback(const std::shared_ptr<athena_interfaces::srv::Nav
 {
   res->success = false;
 
-  if (state_ < NavState::READY)
-    return;
-
   switch (req->control_mode)
   {
     case athena_interfaces::srv::NavMode::Request::EXPLR_NAV_AB: {
       RCLCPP_INFO(this->get_logger(), "Change mode to navigating");
       // config().blackboard->set<std::string>("nav_mode", "navigating");
       if (navi_mode_ != NavMode::NavMode_AB)
-        navi_mode_ = NavMode::NavMode_Track;
+        navi_mode_ = NavMode::NavMode_AB;
 
-      setControllerTrackingMode(false);
+      // setControllerTrackingMode(false);
     }
     break;
     case athena_interfaces::srv::NavMode::Request::TRACK_F:
     case athena_interfaces::srv::NavMode::Request::TRACK_S: {
-      RCLCPP_INFO(this->get_logger(), "Change mode to tracking");
+      RCLCPP_INFO(this->get_logger(), "Change mode to tracking, set current_controller_ to FollowPath");
       if (navi_mode_ != NavMode::NavMode_Track)
-        navi_mode_ = NavMode::NavMode_AB;
-      setControllerTrackingMode(true);
+      {
+        navi_mode_ = NavMode::NavMode_Track;
+        current_controller_ = "FollowPath";
+      }
+      // setControllerTrackingMode(true);
       // config().blackboard->set<std::string>("nav_mode", "tracking");
     }
     break;
@@ -1092,6 +1135,104 @@ bool MoveBase::transformPose(const std::string& target_frame, const geometry_msg
   }
 
   return false;
+}
+
+void MoveBase::trackingPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+{
+  if (navi_mode_ != NavMode::NavMode_Track)
+  {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 10000, "tracking callback, current is nott TrackingMode");
+    return;
+  }
+
+  if (state_ == NavState::UNACTIVE)
+    return;
+
+  RCLCPP_INFO(get_logger(), "tracking_pose, in");
+  geometry_msgs::msg::PoseStamped src_pose;
+  src_pose = *msg;
+  src_pose.header.stamp.sec = 0;
+  src_pose.header.stamp.nanosec = 0;
+
+  geometry_msgs::msg::PoseStamped tar_pose;
+  if (false == transformPose("map", src_pose, tar_pose))
+  {
+    RCLCPP_ERROR(this->get_logger(), "tracking_pose, transform pose failed");
+    return;
+  }
+
+  requestInfo req;
+  req.planner_id = "DMP";
+  req.controller_id = "FollowPath";
+  req.goal = tar_pose;
+  req.goal.header.stamp = rclcpp::Time();
+
+  {
+    std::unique_lock<std::mutex> lock(planner_mutex_);
+    goals_queue_.push(req);
+    lock.unlock();
+  }
+
+  last_valid_plan_time_ = now();
+  publishMarker(tar_pose);
+
+  if (state_ == NavState::READY)
+  {
+    resetState();
+    state_ = NavState::PLANNING;
+  }
+}
+
+void MoveBase::updateTrackingGoal()
+{
+  // static unsigned int i = 0;
+
+  if (navi_mode_ != NavMode::NavMode_Track)
+    return;
+
+  if (!goals_queue_.empty())
+  {
+    RCLCPP_INFO(get_logger(), "update tracking goal, size %ld", goals_queue_.size());
+    run_planner_ = true;
+    planner_cond_.notify_one();
+    last_nofity_plan_time_ = now();
+    last_valid_plan_time_ = now();
+  }
+}
+
+void MoveBase::publishMarker(geometry_msgs::msg::PoseStamped& pose, int type)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header = pose.header;
+  marker.ns = "tracking";
+  marker.id = 0;
+
+  marker.type = visualization_msgs::msg::Marker::ARROW;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  marker.pose = pose.pose;
+
+  marker.scale.x = 0.5;
+  marker.scale.y = 0.1;
+  marker.scale.z = 0.1;
+
+  marker.color.g = 1.0, marker.color.a = 0.8;
+
+  marker.lifetime.sec = 0;
+  marker.lifetime.nanosec = 0;
+
+  if (type != 1)
+  {
+    marker.id = 100;
+    marker.color.g = 0;
+    marker.color.r = 1;
+  }
+  RCLCPP_INFO(get_logger(), "publish_marker, type %d", type);
+
+  if (tracking_marker_pub_->is_activated() && this->count_subscribers(tracking_marker_pub_->get_topic_name()) > 0)
+  {
+    tracking_marker_pub_->publish(marker);
+  }
 }
 
 }  // namespace move_base

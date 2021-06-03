@@ -58,5 +58,6 @@ def generate_launch_description():
             executable='move_base_node',
             output='screen',
             parameters=[configured_params],
-            namespace=namespace),
+            namespace=namespace,)
+            #prefix=['xterm -e gdb -ex run --args']),
     ])

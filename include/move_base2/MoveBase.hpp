@@ -254,6 +254,15 @@ public:
 
   bool transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
                      geometry_msgs::msg::PoseStamped& out_pose);
+
+private:
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_pose_sub_;
+  void trackingPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>::SharedPtr tracking_marker_pub_;
+  void publishMarker(geometry_msgs::msg::PoseStamped& pose, int type = 1);
+  geometry_msgs::msg::PoseStamped pre_tracking_pose_;
+  void updateTrackingGoal();
 };
 
 }  // namespace move_base

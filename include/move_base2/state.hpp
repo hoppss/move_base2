@@ -4,6 +4,7 @@ enum NavState
   READY,
   PLANNING,
   CONTROLLING,
+  WAITING,
   EXCEPTION,
   STOPPING,
 };

@@ -77,10 +77,10 @@ def generate_launch_description():
             output='screen',
             parameters=[configured_params],
             namespace=namespace),
-        Node(
-            package='move_base2',
-            executable='receive_goal_to_mb',
-            name='receive_goal_to_mb',
-            output='screen',
-            namespace=namespace),
+        #Node(
+        #    package='move_base2',
+        #    executable='receive_goal_to_mb',
+        #    name='receive_goal_to_mb',
+        #    output='screen',
+        #    namespace=namespace),
     ])

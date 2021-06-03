@@ -25,7 +25,7 @@ move_base_node:
     progress_checker_plugin: "progress_checker"
     goal_checker_plugin: "simple_goal_checker"
     controller_plugins: ["FollowPath"]
-    odom_topic: odom_chassis
+    odom_topic: odom_out
 
     FollowPath:
       plugin: "teb_local_planner::TebLocalPlannerROS"
@@ -46,9 +46,9 @@ move_base_node:
       max_global_plan_lookahead_dist: 1.5
       visualize_hc_graph: True
       max_vel_x: 0.3
-      max_vel_theta: 1.0
+      max_vel_theta: 1.5
       acc_lim_x: 0.5
-      acc_lim_theta: 1.0
+      acc_lim_theta: 1.5
       teb_autosize: True
       weight_kinematics_forward_drive: 1000.
       weight_inflation: 10.
