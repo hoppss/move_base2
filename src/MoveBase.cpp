@@ -50,6 +50,7 @@ MoveBase::MoveBase()
 {
   // setup planner+global_costmap
   RCLCPP_INFO(get_logger(), "Creating Planner");
+  declare_parameter("navi_mode", "NavMode_AB");  // default
 
   for (size_t i = 0; i < default_planner_ids_.size(); ++i)
   {
@@ -1048,7 +1049,10 @@ void MoveBase::getModeCallback(const std::shared_ptr<athena_interfaces::srv::Nav
       RCLCPP_INFO(this->get_logger(), "Change mode to navigating");
       // config().blackboard->set<std::string>("nav_mode", "navigating");
       if (navi_mode_ != NavMode::NavMode_AB)
+      {
         navi_mode_ = NavMode::NavMode_AB;
+        declare_parameter("navi_mode", "NavMode_AB");
+      }
 
       // setControllerTrackingMode(false);
     }
@@ -1059,6 +1063,7 @@ void MoveBase::getModeCallback(const std::shared_ptr<athena_interfaces::srv::Nav
       if (navi_mode_ != NavMode::NavMode_Track)
       {
         navi_mode_ = NavMode::NavMode_Track;
+        declare_parameter("navi_mode", "NavMode_Track");
         current_controller_ = "FollowPath";
       }
       // setControllerTrackingMode(true);
