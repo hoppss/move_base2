@@ -34,8 +34,8 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
   tracking_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("tracking_marker", 10);
 
   // tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose", rclcpp::SystemDefaultsQoS());
-  req_ = std::make_shared<athena_interfaces::srv::NavigateToPose::Request>();
-  navi_to_client_ = this->create_client<athena_interfaces::srv::NavigateToPose>("NaviTo");
+  req_ = std::make_shared<automation_msgs::srv::NavigateToPose::Request>();
+  navi_to_client_ = this->create_client<automation_msgs::srv::NavigateToPose>("NaviTo");
 }
 
 ReceiveGoalMb::~ReceiveGoalMb()
@@ -183,7 +183,7 @@ void ReceiveGoalMb::timerCallback()
 
     // define async callback function
     auto response_received_callback =
-        [this](rclcpp::Client<athena_interfaces::srv::NavigateToPose>::SharedFuture result) {
+        [this](rclcpp::Client<automation_msgs::srv::NavigateToPose>::SharedFuture result) {
           auto response = result.get();
           if (response->result == true && rclcpp::ok())
           {

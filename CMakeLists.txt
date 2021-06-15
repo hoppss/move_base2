@@ -49,7 +49,7 @@ find_package(tf2 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 find_package(rcl_interfaces REQUIRED)
-find_package(athena_interfaces REQUIRED)
+find_package(automation_msgs REQUIRED)
 
 ## dependencies
 set(dependencies
@@ -76,7 +76,7 @@ set(dependencies
   angles
   map_msgs
   rcl_interfaces
-  athena_interfaces
+  automation_msgs
 )
 
 ## include directory
@@ -89,7 +89,7 @@ include_directories(include)
 # )
 
 ## node
-add_executable(move_base_node src/main.cpp  src/MoveBase.cpp src/PointCost.cpp)
+add_executable(move_base_node src/main.cpp  src/MoveBase.cpp src/PointCost.cpp src/BaseController.cpp)
 target_include_directories(move_base_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

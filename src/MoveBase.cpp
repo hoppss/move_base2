@@ -86,6 +86,8 @@ MoveBase::MoveBase()
 
   // collisionfree check
   point_cost_ = std::make_shared<move_base::PointCost>();
+  base_controller_ = std::make_shared<move_base::BaseController>();
+  // basecontroller rotate
 
   plan_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::planThread, this));
 
@@ -118,6 +120,8 @@ MoveBase::MoveBase()
   controller_costmap_thread_ = std::make_unique<nav2_util::NodeThread>(controller_costmap_ros_);
 
   spin_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::spinThread, this));
+
+  // last_tracking_pose_in_camera_.pose.position.y = -1;
 }  // construnctor
 
 void MoveBase::loop()
@@ -170,6 +174,7 @@ void MoveBase::loop()
           lock.unlock();
           publishZeroVelocity();
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));  // wait a little to release cpu
       }
       break;
 
@@ -203,6 +208,70 @@ void MoveBase::loop()
         std::unique_lock<std::mutex> lock(planner_mutex_);
         state_ = NavState::PLANNING;
         last_valid_plan_time_ = now();
+      }
+      break;
+
+      case TRACKINGROTATERECOVERY: {
+        RCLCPP_INFO(get_logger(), "TRACKINGROTATERECOVERY <<");
+        // 1. wait and check whether new tracking msg
+        bool has_new_msg = false;
+        int i = 0;  // check for some seconds
+        while (!has_new_msg && i++ < 15 && rclcpp::ok())
+        {
+          RCLCPP_INFO(get_logger(), "recovery ? %d", i);
+          if (!goals_queue_.empty())
+          {
+            has_new_msg = true;
+            RCLCPP_WARN(get_logger(), "TRACKINGROTATERECOVERY have new msg %ld", goals_queue_.size());
+            publishZeroVelocity();
+            last_valid_plan_time_ = now();
+            state_ = NavState::PLANNING;
+            break;
+          }
+
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        // 2. rotate a angle
+        if (!has_new_msg)
+        {
+          geometry_msgs::msg::PoseStamped p_in_camera = last_tracking_pose_in_camera_;
+          p_in_camera.header.stamp = rclcpp::Time();
+
+          double a = 1.1;  // angles (rad) to rotate
+          if (p_in_camera.pose.position.y > 0)
+          {
+            RCLCPP_INFO(get_logger(), "rotate to left, %f", a);
+          }
+          else if (p_in_camera.pose.position.y < 0)
+          {
+            RCLCPP_INFO(get_logger(), "rotate to right, %f", a);
+            a *= -1;
+          }
+          else
+          {
+            RCLCPP_ERROR(get_logger(), "last tracking pose [%f, %f]", p_in_camera.pose.position.x,
+                         p_in_camera.pose.position.y);
+            publishZeroVelocity();
+            state_ = NavState::READY;
+          }
+
+          base_controller_->rotate(a);
+          publishZeroVelocity();
+          if (!goals_queue_.empty())
+          {
+            RCLCPP_INFO(get_logger(), "After Rotate Recovery, no new target, reset State to READY");
+            state_ = NavState::READY;
+            resetState();
+          }
+          else
+          {
+            RCLCPP_INFO(get_logger(), "After Rotate Recovery, find new target, start planning!");
+            last_valid_plan_time_ = now();
+            state_ = PLANNING;
+          }
+        }
+        // 3. return ready
       }
       break;
 
@@ -242,6 +311,7 @@ MoveBase::~MoveBase()
     plan_thread_->join();
   }
   point_cost_.reset();
+  base_controller_.reset();
 
   tracking_pose_sub_.reset();
   tracking_marker_pub_.reset();
@@ -405,11 +475,11 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
 
   // get mode interfaces
-  get_mode_server_ = this->create_service<athena_interfaces::srv::NavMode>(
+  get_mode_server_ = this->create_service<automation_msgs::srv::NavMode>(
       "get_mode", std::bind(&MoveBase::getModeCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   // Finally, Create the action servers for path planning to a pose and through poses
-  service_handle_ = this->create_service<athena_interfaces::srv::NavigateToPose>(
+  service_handle_ = this->create_service<automation_msgs::srv::NavigateToPose>(
       "NaviTo", std::bind(&MoveBase::handleService, this, std::placeholders::_1, std::placeholders::_2));
 
   // tracking server
@@ -431,6 +501,7 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
   plan_publisher_->on_activate();
 
   point_cost_->initialize(shared_from_this(), global_costmap_ros_);
+  base_controller_->initialize(shared_from_this(), tf_, vel_publisher_);
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it)
@@ -522,8 +593,8 @@ nav2_util::CallbackReturn MoveBase::on_shutdown(const rclcpp_lifecycle::State&)
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::NavigateToPose::Request> request,
-                             std::shared_ptr<athena_interfaces::srv::NavigateToPose::Response> response)
+void MoveBase::handleService(const std::shared_ptr<automation_msgs::srv::NavigateToPose::Request> request,
+                             std::shared_ptr<automation_msgs::srv::NavigateToPose::Response> response)
 {
   // log
   RCLCPP_INFO(get_logger(),
@@ -543,7 +614,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   if (state_ == NavState::UNACTIVE)
   {
     RCLCPP_WARN(get_logger(), "NaviTo: unactive, please active lifecycle");
-    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
+    response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, lifecycle is not active";
     return;
   }
@@ -551,7 +622,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   if (request->planner_id.empty() || request->controller_id.empty() || request->goal.header.frame_id.empty())
   {
     RCLCPP_WARN(get_logger(), "NaviTo: empty request, ple input planner and controller id");
-    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
+    response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, empty planner/controller/empty id, check dds?";
     return;
   }
@@ -567,7 +638,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   if (!transformPose("map", req.goal, req.goal))
   {
     RCLCPP_WARN(get_logger(), "NaviTo: request goal transform to map frame failed");
-    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
+    response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request failed, transform goal to map frame failed!";
     return;
   }
@@ -585,7 +656,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
     lock.unlock();
 
     RCLCPP_ERROR(get_logger(), "NaviTo: failed to find controller-id");
-    response->result = athena_interfaces::srv::NavigateToPose::Response::FAILTURE;
+    response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
     response->description = "request rejected, error controller_id";
     return;
   }
@@ -630,7 +701,7 @@ void MoveBase::handleService(const std::shared_ptr<athena_interfaces::srv::Navig
   run_planner_ = true;
   planner_cond_.notify_one();  // before cv.notify(), run_planner_ must be true
 
-  response->result = athena_interfaces::srv::NavigateToPose::Response::SUCCESS;
+  response->result = automation_msgs::srv::NavigateToPose::Response::SUCCESS;
   response->description = "request received";
 }
 
@@ -765,8 +836,19 @@ void MoveBase::computeControl()
     if (isGoalReached())
     {
       RCLCPP_INFO(get_logger(), "controller: Reached the goal!");
-      state_ = NavState::READY;
-      publishZeroVelocity();
+      if (navi_mode_ == NavMode::NavMode_Track)
+      {
+        RCLCPP_INFO(get_logger(), "tracking recovery << ");
+        publishZeroVelocity();
+        state_ = NavState::TRACKINGROTATERECOVERY;
+      }
+      else
+      {
+        // tracking mode
+        publishZeroVelocity();
+        state_ = NavState::READY;
+      }
+
       return;
     }
 
@@ -1038,14 +1120,14 @@ void MoveBase::resetState()
   is_cancel_ = false;
 }
 
-void MoveBase::getModeCallback(const std::shared_ptr<athena_interfaces::srv::NavMode::Request> req,
-                               std::shared_ptr<athena_interfaces::srv::NavMode::Response> res)
+void MoveBase::getModeCallback(const std::shared_ptr<automation_msgs::srv::NavMode::Request> req,
+                               std::shared_ptr<automation_msgs::srv::NavMode::Response> res)
 {
   res->success = false;
 
   switch (req->control_mode)
   {
-    case athena_interfaces::srv::NavMode::Request::EXPLR_NAV_AB: {
+    case automation_msgs::srv::NavMode::Request::EXPLR_NAV_AB: {
       RCLCPP_INFO(this->get_logger(), "Change mode to navigating");
       // config().blackboard->set<std::string>("nav_mode", "navigating");
       if (navi_mode_ != NavMode::NavMode_AB)
@@ -1058,8 +1140,8 @@ void MoveBase::getModeCallback(const std::shared_ptr<athena_interfaces::srv::Nav
       // setControllerTrackingMode(false);
     }
     break;
-    case athena_interfaces::srv::NavMode::Request::TRACK_F:
-    case athena_interfaces::srv::NavMode::Request::TRACK_S: {
+    case automation_msgs::srv::NavMode::Request::TRACK_F:
+    case automation_msgs::srv::NavMode::Request::TRACK_S: {
       RCLCPP_INFO(this->get_logger(), "Change mode to tracking, set current_controller_ to FollowPath");
       if (navi_mode_ != NavMode::NavMode_Track)
       {
@@ -1072,9 +1154,9 @@ void MoveBase::getModeCallback(const std::shared_ptr<athena_interfaces::srv::Nav
       // config().blackboard->set<std::string>("nav_mode", "tracking");
     }
     break;
-    case athena_interfaces::srv::NavMode::Request::EXPLR_MAP_UPDATE:
-    case athena_interfaces::srv::NavMode::Request::EXPLR_MAP_NEW:
-    case athena_interfaces::srv::NavMode::Request::MODE_STOP: {
+    case automation_msgs::srv::NavMode::Request::EXPLR_MAP_UPDATE:
+    case automation_msgs::srv::NavMode::Request::EXPLR_MAP_NEW:
+    case automation_msgs::srv::NavMode::Request::MODE_STOP: {
       RCLCPP_INFO(this->get_logger(), "Stop navigation");
       // config().blackboard->set<std::string>("nav_mode", "none");
     }
@@ -1155,7 +1237,12 @@ void MoveBase::trackingPoseCallback(const geometry_msgs::msg::PoseStamped::Share
   if (state_ == NavState::UNACTIVE)
     return;
 
-  RCLCPP_INFO(get_logger(), "tracking_pose, in");
+  RCLCPP_INFO(get_logger(), "tracking_pose in %s, [%f, %f]", msg->header.frame_id.c_str(), msg->pose.position.x,
+              msg->pose.position.y);
+
+  // save last msg for tracking recovery when lost
+  last_tracking_pose_in_camera_ = *msg;
+
   geometry_msgs::msg::PoseStamped src_pose;
   src_pose = *msg;
   src_pose.header.stamp.sec = 0;

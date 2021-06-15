@@ -49,12 +49,13 @@
 #include "nav2_controller/plugins/simple_progress_checker.hpp"
 #include "nav2_controller/plugins/stopped_goal_checker.hpp"
 
-#include "athena_interfaces/srv/nav_mode.hpp"
+#include "automation_msgs/srv/nav_mode.hpp"
+#include "automation_msgs/srv/navigate_to_pose.hpp"
 
 #include "move_base2/state.hpp"
-#include "athena_interfaces/srv/navigate_to_pose.hpp"
 #include "move_base2/request_info.hpp"
 #include "move_base2/PointCost.hpp"
+#include "move_base2/BaseController.h"
 
 namespace move_base
 {
@@ -110,10 +111,10 @@ protected:
   int navi_mode_;
 
   // service server
-  rclcpp::Service<athena_interfaces::srv::NavigateToPose>::SharedPtr service_handle_;
+  rclcpp::Service<automation_msgs::srv::NavigateToPose>::SharedPtr service_handle_;
 
-  void handleService(const std::shared_ptr<athena_interfaces::srv::NavigateToPose::Request> request,
-                     std::shared_ptr<athena_interfaces::srv::NavigateToPose::Response> response);
+  void handleService(const std::shared_ptr<automation_msgs::srv::NavigateToPose::Request> request,
+                     std::shared_ptr<automation_msgs::srv::NavigateToPose::Response> response);
 
   std::queue<requestInfo> goals_queue_;
 
@@ -238,11 +239,11 @@ protected:
 public:
   void resetState();
 
-  rclcpp::Service<athena_interfaces::srv::NavMode>::SharedPtr get_mode_server_;
+  rclcpp::Service<automation_msgs::srv::NavMode>::SharedPtr get_mode_server_;
   rclcpp::Client<rcl_interfaces::srv::ListParameters>::SharedPtr param_client_;
 
-  void getModeCallback(const std::shared_ptr<athena_interfaces::srv::NavMode::Request> req,
-                       std::shared_ptr<athena_interfaces::srv::NavMode::Response> res);
+  void getModeCallback(const std::shared_ptr<automation_msgs::srv::NavMode::Request> req,
+                       std::shared_ptr<automation_msgs::srv::NavMode::Response> res);
 
   bool setControllerTrackingMode(bool enable);
 
@@ -263,6 +264,10 @@ private:
   void publishMarker(geometry_msgs::msg::PoseStamped& pose, int type = 1);
   geometry_msgs::msg::PoseStamped pre_tracking_pose_;
   void updateTrackingGoal();
+
+  // tracking recovery
+  geometry_msgs::msg::PoseStamped last_tracking_pose_in_camera_;
+  std::shared_ptr<BaseController> base_controller_;
 };
 
 }  // namespace move_base
