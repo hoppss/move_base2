@@ -3,12 +3,19 @@ move_base_node:
     # planner
     expected_planner_frequency: 20.0
     use_sim_time: True
-    planner_plugins: ["GridBased", "DMP"]
+    planner_plugins: ["GridBased", "LNavfn"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
       use_astar: false
       allow_unknown: true
+
+    LNavfn:
+      plugin: "lnavfn_planner/LNavfnPlanner"
+      visualize: true
+      free_radius: 0.5
+      search_radius: 1.0
+      tracking_distance: 1.0
 
     DMP:
       plugin: "dm_planner/DMPlanner"
@@ -45,10 +52,10 @@ move_base_node:
       max_samples: 20
       max_global_plan_lookahead_dist: 1.5
       visualize_hc_graph: True
-      max_vel_x: 0.3
-      max_vel_theta: 1.0
+      max_vel_x: 0.6
+      max_vel_theta: 1.5
       acc_lim_x: 0.5
-      acc_lim_theta: 1.0
+      acc_lim_theta: 1.5
       teb_autosize: True
       weight_kinematics_forward_drive: 1000.
       weight_inflation: 10.

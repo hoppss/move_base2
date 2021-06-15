@@ -258,7 +258,7 @@ void MoveBase::loop()
 
           base_controller_->rotate(a);
           publishZeroVelocity();
-          if (!goals_queue_.empty())
+          if (goals_queue_.empty())
           {
             RCLCPP_INFO(get_logger(), "After Rotate Recovery, no new target, reset State to READY");
             state_ = NavState::READY;
@@ -266,7 +266,7 @@ void MoveBase::loop()
           }
           else
           {
-            RCLCPP_INFO(get_logger(), "After Rotate Recovery, find new target, start planning!");
+            RCLCPP_INFO(get_logger(), "After Rotate Recovery, find new target, %ld", goals_queue_.size());
             last_valid_plan_time_ = now();
             state_ = PLANNING;
           }
@@ -1256,7 +1256,9 @@ void MoveBase::trackingPoseCallback(const geometry_msgs::msg::PoseStamped::Share
   }
 
   requestInfo req;
-  req.planner_id = "DMP";
+  // req.planner_id = "DMP";
+  req.planner_id = "LNavfn";
+
   req.controller_id = "FollowPath";
   req.goal = tar_pose;
   req.goal.header.stamp = rclcpp::Time();

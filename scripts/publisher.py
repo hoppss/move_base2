@@ -16,7 +16,7 @@ class MinimalPublisher(Node):
 
     def timer_callback(self):
         msg = PoseStamped()
-        msg.header.frame_id = 'map'
+        msg.header.frame_id = 'base_scan'
         if(self.i % 3 == 0):
             print(self.i %3)
             msg.pose.position.x = 1.0
