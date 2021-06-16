@@ -1125,7 +1125,7 @@ void MoveBase::getModeCallback(const std::shared_ptr<automation_msgs::srv::NavMo
 {
   res->success = false;
 
-  switch (req->control_mode)
+  switch (req->sub_mode)
   {
     case automation_msgs::srv::NavMode::Request::EXPLR_NAV_AB: {
       RCLCPP_INFO(this->get_logger(), "Change mode to navigating");
