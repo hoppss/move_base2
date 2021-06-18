@@ -21,7 +21,7 @@ using namespace std::chrono_literals;
 namespace move_base
 {
 MoveBase::MoveBase()
-  : nav2_util::LifecycleNode("move_base_node", "", true)
+  : athena_utils::LifecycleNode("move_base_node")
 
   , state_(NavState::UNACTIVE)
   , is_cancel_(false)
@@ -489,6 +489,8 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
       "tracking_pose", sub_qos, std::bind(&MoveBase::trackingPoseCallback, this, std::placeholders::_1));
 
   tracking_marker_pub_ = create_publisher<visualization_msgs::msg::Marker>("tracking_marker", 10);
+
+  // add_activation("rtabmap");  // cascade lifecycle needed
 
   return nav2_util::CallbackReturn::SUCCESS;
 }

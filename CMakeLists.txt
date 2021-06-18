@@ -50,6 +50,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 find_package(rcl_interfaces REQUIRED)
 find_package(automation_msgs REQUIRED)
+find_package(athena_utils REQUIRED)
 
 ## dependencies
 set(dependencies
@@ -77,6 +78,7 @@ set(dependencies
   map_msgs
   rcl_interfaces
   automation_msgs
+  athena_utils
 )
 
 ## include directory
@@ -131,7 +133,6 @@ add_executable(portal test/namespace_portal.cpp)
 ament_target_dependencies(portal  ${dependencies})
 
 ## install
-
 
 install(TARGETS move_base_node lifecycle_client navi_to_client receive_goal_to_mb portal test1
   RUNTIME DESTINATION lib/${PROJECT_NAME}

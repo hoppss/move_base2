@@ -43,7 +43,7 @@
 
 #include "nav_2d_utils/conversions.hpp"
 #include "nav_2d_utils/tf_help.hpp"
-#include "nav2_util/lifecycle_node.hpp"
+#include "athena_utils/lifecycle_node.hh"
 
 #include "nav2_controller/plugins/simple_goal_checker.hpp"
 #include "nav2_controller/plugins/simple_progress_checker.hpp"
@@ -59,7 +59,7 @@
 
 namespace move_base
 {
-class MoveBase : public nav2_util::LifecycleNode
+class MoveBase : public athena_utils::LifecycleNode
 {
 public:
   MoveBase();
