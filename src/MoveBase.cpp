@@ -551,6 +551,8 @@ nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State&
   vel_publisher_->on_deactivate();
   tracking_marker_pub_->on_deactivate();
 
+  state_ = NavState::UNACTIVE;
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
