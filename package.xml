@@ -38,6 +38,7 @@
   <depend>rcl_interfaces</depend>
   <depend>automation_msgs</depend>
   <depend>athena_utils</depend>
+  <depend>interaction_msgs</depend>
 
   <member_of_group>rosidl_interface_packages</member_of_group>
 

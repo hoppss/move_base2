@@ -492,6 +492,9 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
 
   // add_activation("rtabmap");  // cascade lifecycle needed
 
+  point_cost_->initialize(shared_from_this(), global_costmap_ros_);
+  base_controller_->initialize(shared_from_this(), tf_, vel_publisher_);
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -501,9 +504,6 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
 
   global_costmap_ros_->on_activate(state);
   plan_publisher_->on_activate();
-
-  point_cost_->initialize(shared_from_this(), global_costmap_ros_);
-  base_controller_->initialize(shared_from_this(), tf_, vel_publisher_);
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it)

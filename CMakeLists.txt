@@ -50,6 +50,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 find_package(rcl_interfaces REQUIRED)
 find_package(automation_msgs REQUIRED)
+find_package(interaction_msgs REQUIRED)
 find_package(athena_utils REQUIRED)
 
 ## dependencies
@@ -78,6 +79,7 @@ set(dependencies
   map_msgs
   rcl_interfaces
   automation_msgs
+  interaction_msgs
   athena_utils
 )
 
@@ -125,16 +127,29 @@ add_executable(receive_goal_to_mb src/main_to_mb.cpp src/receive_goal_to_mb.cpp)
 ament_target_dependencies( receive_goal_to_mb  ${dependencies})
 
 ## costmap pub cycle test
-add_executable(test1 test/test.cpp)
-ament_target_dependencies(test1  ${dependencies})
+add_executable(map_test test/map.cpp)
+ament_target_dependencies(map_test  ${dependencies})
+
+add_executable(odom_test test/odom.cpp)
+ament_target_dependencies(odom_test  ${dependencies})
+
+add_executable(reid test/reid.cpp)
+ament_target_dependencies(reid  ${dependencies})
 
 ## costmap pub cycle test
 add_executable(portal test/namespace_portal.cpp)
 ament_target_dependencies(portal  ${dependencies})
 
 ## install
-
-install(TARGETS move_base_node lifecycle_client navi_to_client receive_goal_to_mb portal test1
+install(TARGETS
+          move_base_node
+          lifecycle_client
+          navi_to_client
+          receive_goal_to_mb
+          portal
+          map_test
+          odom_test
+          reid
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

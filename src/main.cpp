@@ -5,6 +5,9 @@
 
 int main(int argc, char** argv)
 {
+  // setvbuf(stdout, nullptr, _IONBF, BUFSIZ);
+  // setvbuf(stdout, NULL, _IOLBF, 0);
+
   rclcpp::init(argc, argv);
   auto node = std::make_shared<move_base::MoveBase>();
 
