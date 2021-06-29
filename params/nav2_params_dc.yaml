@@ -61,7 +61,8 @@ move_base_node:
       weight_inflation: 10.
       control_look_ahead_poses: 2
       #obstacle_association_force_inclusion_factor: 1.0
-      force_reinit_new_goal_dist: 0.5
+      force_reinit_new_goal_dist: 0.3
+      force_reinit_new_goal_angular: 0.3
 
 
     # Progress checker parameters

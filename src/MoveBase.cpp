@@ -312,7 +312,7 @@ void MoveBase::loop()
         }
         else
         {
-          RCLCPP_FATAL(get_logger(), "<< THIS SHOULD NOT HAPPEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+          RCLCPP_FATAL(get_logger(), " has_new msg ? %ld, continue and replan", goals_queue_.size());
         }
         // 3. return ready
       }
