@@ -58,3 +58,8 @@ ros2 launch move_base2 tracking_launch_mb.py
 ```
 ## lifecycle激活， 见仿真对应部分
 ## rviz2 发送请求， 见仿真对应部分
+
+## 默认起来是AB 导航模式， 如果要切换跟踪模式, 详情见脚本内解释
+```
+bash  <relative-path>/scripts/set_mode.bash
+```

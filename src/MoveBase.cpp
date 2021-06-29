@@ -13,7 +13,7 @@
 #include "nav2_util/costmap.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "nav2_costmap_2d/cost_values.hpp"
-
+#include "angles/angles.h"
 #include "move_base2/MoveBase.hpp"
 
 using namespace std::chrono_literals;
@@ -108,9 +108,9 @@ MoveBase::MoveBase()
   declare_parameter("goal_checker_plugin", default_goal_checker_id_);
   declare_parameter("controller_plugins", default_controller_ids_);
 
-  declare_parameter("min_x_velocity_threshold", rclcpp::ParameterValue(0.0001));
-  declare_parameter("min_y_velocity_threshold", rclcpp::ParameterValue(0.0001));
-  declare_parameter("min_theta_velocity_threshold", rclcpp::ParameterValue(0.0001));
+  declare_parameter("min_x_velocity_threshold", rclcpp::ParameterValue(0.01));
+  declare_parameter("min_y_velocity_threshold", rclcpp::ParameterValue(0.01));
+  declare_parameter("min_theta_velocity_threshold", rclcpp::ParameterValue(0.01));
 
   // The costmap node is used in the implementation of the controller
   controller_costmap_ros_ =
@@ -215,8 +215,8 @@ void MoveBase::loop()
         RCLCPP_INFO(get_logger(), "TRACKINGROTATERECOVERY <<");
         // 1. wait and check whether new tracking msg
         bool has_new_msg = false;
-        int i = 0;  // check for some seconds
-        while (!has_new_msg && i++ < 15 && rclcpp::ok())
+        int i = 0;  // wait and check whether has new target
+        while (!has_new_msg && i++ < 12 && rclcpp::ok())
         {
           RCLCPP_INFO(get_logger(), "recovery ? %d", i);
           if (!goals_queue_.empty())
@@ -238,7 +238,7 @@ void MoveBase::loop()
           geometry_msgs::msg::PoseStamped p_in_camera = last_tracking_pose_in_camera_;
           p_in_camera.header.stamp = rclcpp::Time();
 
-          double a = 1.1;  // angles (rad) to rotate
+          double a = 1.0;  // angles (rad) to rotate
           if (p_in_camera.pose.position.y > 0)
           {
             RCLCPP_INFO(get_logger(), "rotate to left, %f", a);
@@ -256,20 +256,63 @@ void MoveBase::loop()
             state_ = NavState::READY;
           }
 
-          base_controller_->rotate(a);
-          publishZeroVelocity();
-          if (goals_queue_.empty())
+          // get current pose and target pose in odom
+          geometry_msgs::msg::PoseStamped target;
+
+          if (getRobotPose(target))
           {
-            RCLCPP_INFO(get_logger(), "After Rotate Recovery, no new target, reset State to READY");
-            state_ = NavState::READY;
-            resetState();
+            double yaw = tf2::getYaw(target.pose.orientation);
+            yaw = angles::normalize_angle(yaw + a);
+
+            tf2::Quaternion q;
+            q.setRPY(0, 0, yaw);
+            target.pose.orientation = tf2::toMsg(q);
+
+            int i = 0;  // simple use for avoid long-time running
+            while (!base_controller_->approachOnlyRotate(target) && goals_queue_.empty() && i++ < 30)
+            {
+              continue;
+            }
+
+            publishZeroVelocity();
+            if (goals_queue_.empty())
+            {
+              RCLCPP_INFO(get_logger(), "After Rotate Recovery, no new target, reset State to READY");
+              state_ = NavState::READY;
+              resetState();
+            }
+            else
+            {
+              RCLCPP_INFO(get_logger(), "After Rotate Recovery, find new target, %ld", goals_queue_.size());
+              last_valid_plan_time_ = now();
+              state_ = PLANNING;
+            }
           }
           else
           {
-            RCLCPP_INFO(get_logger(), "After Rotate Recovery, find new target, %ld", goals_queue_.size());
-            last_valid_plan_time_ = now();
-            state_ = PLANNING;
+            publishZeroVelocity();
+            state_ = NavState::READY;
+            resetState();
           }
+
+          // base_controller_->rotate(a);
+          // publishZeroVelocity();
+          // if (goals_queue_.empty())
+          // {
+          //   RCLCPP_INFO(get_logger(), "After Rotate Recovery, no new target, reset State to READY");
+          //   state_ = NavState::READY;
+          //   resetState();
+          // }
+          // else
+          // {
+          //   RCLCPP_INFO(get_logger(), "After Rotate Recovery, find new target, %ld", goals_queue_.size());
+          //   last_valid_plan_time_ = now();
+          //   state_ = PLANNING;
+          // }
+        }
+        else
+        {
+          RCLCPP_FATAL(get_logger(), "<< THIS SHOULD NOT HAPPEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         }
         // 3. return ready
       }
@@ -714,8 +757,9 @@ nav_msgs::msg::Path MoveBase::getPlan(const geometry_msgs::msg::PoseStamped& sta
 {
   RCLCPP_INFO(get_logger(),
               "Attempting to a find path from (%.2f, %.2f) to "
-              "(%.2f, %.2f).",
-              start.pose.position.x, start.pose.position.y, goal.pose.position.x, goal.pose.position.y);
+              "(%.2f, %.2f). planner_id %s",
+              start.pose.position.x, start.pose.position.y, goal.pose.position.x, goal.pose.position.y,
+              planner_id.c_str());
 
   if (planners_.find(planner_id) != planners_.end())
   {
@@ -1278,7 +1322,7 @@ void MoveBase::trackingPoseCallback(const geometry_msgs::msg::PoseStamped::Share
 
   if (state_ == NavState::READY)
   {
-    resetState();
+    // resetState();
     state_ = NavState::PLANNING;
   }
 }

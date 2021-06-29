@@ -23,6 +23,13 @@ public:
 
   bool rotate(double);
 
+  // tools
+  bool getCurrentPose(geometry_msgs::msg::PoseStamped& odom_pose);
+  bool transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
+                     geometry_msgs::msg::PoseStamped& out_pose);
+
+  bool approachOnlyRotate(const geometry_msgs::msg::PoseStamped& target);
+
 private:
   std::string name_;
   rclcpp_lifecycle::LifecycleNode::SharedPtr node_;

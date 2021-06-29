@@ -2,7 +2,11 @@
 
 namespace move_base
 {
-BaseController::BaseController() : name_{ "base_controller" }, logger_(rclcpp::get_logger("teb_logger"))
+static const double degree45 = 0.7854;
+static const double degree10 = 0.1745;
+static const double degree5 = 0.0872;
+
+BaseController::BaseController() : name_{ "base_controller" }, logger_(rclcpp::get_logger("move_base_basecontroller"))
 {
 }
 
@@ -20,6 +24,110 @@ void BaseController::initialize(
 
   tf_ = tf;
   vel_pub_ = vel_publisher;
+}
+
+bool BaseController::transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
+                                   geometry_msgs::msg::PoseStamped& out_pose)
+{
+  if (in_pose.header.frame_id == target_frame)
+  {
+    out_pose = in_pose;
+    return true;
+  }
+
+  try
+  {
+    auto copy_in_pose = in_pose;
+    copy_in_pose.header.stamp = rclcpp::Time();
+    out_pose = tf_->transform(in_pose, target_frame);
+    return true;
+  }
+  catch (tf2::LookupException& ex)
+  {
+    RCLCPP_ERROR(logger_, "transformPose: No Transform available Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::ConnectivityException& ex)
+  {
+    RCLCPP_ERROR(logger_, "transformPose: Connectivity Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::ExtrapolationException& ex)
+  {
+    RCLCPP_ERROR(logger_, "transformPose: Extrapolation Error looking up robot pose: %s\n", ex.what());
+  }
+  catch (tf2::TimeoutException& ex)
+  {
+    RCLCPP_ERROR(logger_, "transformPose: Transform timeout with tolerance%s", ex.what());
+  }
+  catch (tf2::TransformException& ex)
+  {
+    RCLCPP_ERROR(logger_, "transformPose: Failed to transform");
+  }
+
+  return false;
+}
+
+bool BaseController::getCurrentPose(geometry_msgs::msg::PoseStamped& odom_pose)
+{
+  geometry_msgs::msg::PoseStamped p_in_b;
+
+  tf2::toMsg(tf2::Transform::getIdentity(), p_in_b.pose);
+
+  p_in_b.header.frame_id = "base_footprint";
+  p_in_b.header.stamp = rclcpp::Time();
+
+  odom_pose.header.frame_id = "odom";
+  odom_pose.header.stamp = rclcpp::Time();
+
+  if (!transformPose(odom_pose.header.frame_id, p_in_b, odom_pose))
+  {
+    RCLCPP_ERROR(logger_, "BaseController, getCurrentPose failed");
+    return false;
+  }
+  return true;
+}
+
+bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& target)
+{
+  geometry_msgs::msg::PoseStamped p_in_b;
+
+  double theta = 0.0;
+  bool goal_reached = false;
+
+  geometry_msgs::msg::Twist command;
+  command.linear.x = 0.0;
+  command.angular.z = 0.0;
+
+  if (transformPose("base_footprint", target, p_in_b))
+  {
+    theta = tf2::getYaw(p_in_b.pose.orientation);
+    if (std::fabs(theta) > degree5)
+    {
+      command.angular.z = theta;
+    }
+    else
+    {
+      command.angular.z = 0.0;
+      goal_reached = true;
+    }
+
+    if (theta > degree45)
+      command.angular.z = degree45;
+    if (theta < -degree45)
+      command.angular.z = -degree45;
+
+    vel_pub_->publish(command);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if (goal_reached)
+    {
+      RCLCPP_INFO(logger_, "rotate finish");
+      return true;
+    }
+    else
+      return false;
+  }
+
+  vel_pub_->publish(command);
+  return false;
 }
 
 bool BaseController::rotate(double angle)
