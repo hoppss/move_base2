@@ -22,7 +22,8 @@ private:
   void topic_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) const
   {
     rclcpp::Time t = rclcpp::Time(msg->header.stamp);
-    RCLCPP_INFO(this->get_logger(), "dt %f", (t - last_stamp_).seconds());
+    double dt = t.seconds() - last_stamp_.seconds();
+    RCLCPP_INFO(this->get_logger(), "dt %f", dt);
   }
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr subscription_;
 
