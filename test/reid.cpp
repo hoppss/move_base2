@@ -20,7 +20,7 @@ public:
   MinimalSubscriber() : Node("minimal_subscriber")
   {
     subscription_ = this->create_subscription<interaction_msgs::msg::BodyInfo>(
-        "/body", rclcpp::SystemDefaultsQoS(), std::bind(&MinimalSubscriber::body_callback, this, _1));
+        "body", rclcpp::SystemDefaultsQoS(), std::bind(&MinimalSubscriber::body_callback, this, _1));
     timer_ = this->create_wall_timer(300ms, std::bind(&MinimalSubscriber::timer_callback, this));
   };
 
