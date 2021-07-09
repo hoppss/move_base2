@@ -238,7 +238,7 @@ void MoveBase::loop()
           geometry_msgs::msg::PoseStamped p_in_camera = last_tracking_pose_in_camera_;
           p_in_camera.header.stamp = rclcpp::Time();
 
-          double a = 1.0;  // angles (rad) to rotate
+          double a = 0.7;  // angles (rad) to rotate
           if (p_in_camera.pose.position.y > 0)
           {
             RCLCPP_INFO(get_logger(), "rotate to left, %f", a);

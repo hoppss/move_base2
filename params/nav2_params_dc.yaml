@@ -6,7 +6,7 @@ move_base_node:
     planner_plugins: ["GridBased", "LNavfn"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.5
+      tolerance: 0.3
       use_astar: false
       allow_unknown: true
 
@@ -15,7 +15,7 @@ move_base_node:
       visualize: true
       free_radius: 0.5
       search_radius: 1.0
-      tracking_distance: 1.0
+      tracking_distance: 1.5
 
     # DMP:
     #   plugin: "dm_planner/DMPlanner"
