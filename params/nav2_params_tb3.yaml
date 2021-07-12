@@ -15,7 +15,7 @@ move_base_node:
       visualize: true
       free_radius: 0.5
       search_radius: 1.0
-      tracking_distance: 1.0
+      tracking_distance: 1.5
 
     # DMP:
     #   plugin: "dm_planner/DMPlanner"
@@ -71,7 +71,7 @@ move_base_node:
     # Goal checker parameters
     simple_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.5
+      xy_goal_tolerance: 0.3
       yaw_goal_tolerance: 0.2
       stateful: True
 

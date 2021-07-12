@@ -121,6 +121,8 @@ MoveBase::MoveBase()
 
   spin_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::spinThread, this));
 
+  reporter_ = std::make_shared<Reporter>();
+
   // last_tracking_pose_in_camera_.pose.position.y = -1;
 }  // construnctor
 
@@ -158,7 +160,7 @@ void MoveBase::loop()
 
         rclcpp::Time t = now();
 
-        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 0.5)
+        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 0.3)
         {
           run_planner_ = true;
           planner_cond_.notify_one();
@@ -173,6 +175,8 @@ void MoveBase::loop()
           resetState();
           lock.unlock();
           publishZeroVelocity();
+          reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOPATH,
+                            "no_valid_path_exit_navigation");
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));  // wait a little to release cpu
       }
@@ -254,6 +258,9 @@ void MoveBase::loop()
                          p_in_camera.pose.position.y);
             publishZeroVelocity();
             state_ = NavState::READY;
+            reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOTRACKGOAL,
+                              "no_tracking_goal_exit_tracking");
+            break;
           }
 
           // get current pose and target pose in odom
@@ -293,6 +300,8 @@ void MoveBase::loop()
             publishZeroVelocity();
             state_ = NavState::READY;
             resetState();
+            reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOTRACKGOAL,
+                              "no_new_tracking_goal_exit_tracking");
           }
 
           // base_controller_->rotate(a);
@@ -537,6 +546,8 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
 
   point_cost_->initialize(shared_from_this(), global_costmap_ros_);
   base_controller_->initialize(shared_from_this(), tf_, vel_publisher_);
+
+  reporter_->initialize(shared_from_this());
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -895,6 +906,8 @@ void MoveBase::computeControl()
         // tracking mode
         publishZeroVelocity();
         state_ = NavState::READY;
+        reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::SUCCESS_REACHED,
+                          "reach_to_goal!");
       }
 
       return;

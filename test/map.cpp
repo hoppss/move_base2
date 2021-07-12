@@ -15,7 +15,7 @@ public:
   MinimalSubscriber() : Node("minimal_subscriber")
   {
     subscription_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
-        "/map", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
+        "map", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
   };
 
 private:

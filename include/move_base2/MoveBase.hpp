@@ -56,6 +56,7 @@
 #include "move_base2/request_info.hpp"
 #include "move_base2/PointCost.hpp"
 #include "move_base2/BaseController.h"
+#include "move_base2/Reporter.h"
 
 namespace move_base
 {
@@ -268,6 +269,9 @@ private:
   // tracking recovery
   geometry_msgs::msg::PoseStamped last_tracking_pose_in_camera_;
   std::shared_ptr<BaseController> base_controller_;
+
+  // status_reporter
+  std::shared_ptr<Reporter> reporter_;
 };
 
 }  // namespace move_base
