@@ -6,7 +6,7 @@ move_base_node:
     planner_plugins: ["GridBased", "LNavfn"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.3
+      tolerance: 0.5
       use_astar: false
       allow_unknown: true
 
@@ -73,7 +73,7 @@ move_base_node:
     # Goal checker parameters
     simple_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.5
+      xy_goal_tolerance: 0.3
       yaw_goal_tolerance: 0.2
       stateful: True
 
