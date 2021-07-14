@@ -41,7 +41,7 @@ MoveBase::MoveBase()
   , default_progress_checker_type_{ "nav2_controller::SimpleProgressChecker" }
 
   , goal_checker_loader_("nav2_core", "nav2_core::GoalChecker")
-  , default_goal_checker_id_{ "goal_checker" }
+  , default_goal_checker_id_{ "simple_goal_checker" }
   , default_goal_checker_type_{ "nav2_controller::SimpleGoalChecker" }
 
   , lp_loader_("nav2_core", "nav2_core::Controller")
@@ -656,10 +656,10 @@ void MoveBase::handleService(const std::shared_ptr<automation_msgs::srv::Navigat
 {
   // log
   RCLCPP_INFO(get_logger(),
-              "NaviTo: planner [%s] controller [%s], pose [%f, %f], is_cancel [%d],\
+              "NaviTo: planner [%s] controller [%s], pose [%f, %f, %f], is_cancel [%d],\
               goals_queue_size [%d] ",
               request->planner_id.c_str(), request->controller_id.c_str(), request->goal.pose.position.x,
-              request->goal.pose.position.y, (int)request->is_cancel, goals_queue_.size());
+              request->goal.pose.position.y, tf2::getYaw(request->goal.pose.orientation), (int)request->is_cancel, goals_queue_.size());
 
   // check is_cancel
   if (request->is_cancel)
