@@ -19,11 +19,13 @@ public:
   };
 
 private:
-  void topic_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) const
+  void topic_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
   {
-    rclcpp::Time t = rclcpp::Time(msg->header.stamp);
+    // rclcpp::Time t = rclcpp::Time(msg->header.stamp);
+    rclcpp::Time t = now();
     double dt = t.seconds() - last_stamp_.seconds();
     RCLCPP_INFO(this->get_logger(), "dt %f", dt);
+    last_stamp_ = t;
   }
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr subscription_;
 

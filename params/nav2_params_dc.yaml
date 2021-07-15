@@ -38,8 +38,8 @@ move_base_node:
       plugin: "teb_local_planner::TebLocalPlannerROS"
       footprint_model.type: polygon
       footprint_model.vertices: "[[0.36, 0.18], [0.36, -0.18], [-0.415, -0.18], [-0.415, 0.18]]"
-      min_obstacle_dist: 0.05
-      inflation_dist: 0.1
+      min_obstacle_dist: 0.1
+      inflation_dist: 0.2
       #costmap_converter_plugin: "costmap_converter::CostmapToLinesDBSRANSAC"
       costmap_converter_plugin: ""
       #costmap_converter_spin_thread: True
@@ -55,12 +55,14 @@ move_base_node:
       max_vel_x: 0.6
       max_vel_theta: 1.5
       acc_lim_x: 0.5
-      acc_lim_theta: 1.5
+      acc_lim_theta: 3.0
       teb_autosize: True
       weight_kinematics_forward_drive: 1000.
       weight_inflation: 10.
+      weight_acc_lim_x: 1.
+      weight_acc_lim_theta: 10.
       control_look_ahead_poses: 2
-      #obstacle_association_force_inclusion_factor: 1.0
+      obstacle_association_force_inclusion_factor: 2.0
       force_reinit_new_goal_dist: 0.3
       force_reinit_new_goal_angular: 0.3
 

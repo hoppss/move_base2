@@ -36,10 +36,10 @@ move_base_node:
 
     FollowPath:
       plugin: "teb_local_planner::TebLocalPlannerROS"
-      footprint_model.type: polygon
-      footprint_model.vertices: "[[0.22, 0.22], [0.22, -0.22], [-0.22, -0.22], [-0.22, 0.22]]"
-      min_obstacle_dist: 0.05
-      inflation_dist: 0.1
+      footprint_model.type: circular
+      footprint_model.radius: 0.15
+      min_obstacle_dist: 0.10
+      inflation_dist: 0.2
       #costmap_converter_plugin: "costmap_converter::CostmapToLinesDBSRANSAC"
       costmap_converter_plugin: ""
       #costmap_converter_spin_thread: True
@@ -55,13 +55,18 @@ move_base_node:
       max_vel_x: 0.6
       max_vel_theta: 1.5
       acc_lim_x: 0.5
-      acc_lim_theta: 1.5
+      acc_lim_theta: 3.0
       teb_autosize: True
       weight_kinematics_forward_drive: 1000.
       weight_inflation: 10.
+      weight_acc_lim_x: 1.
+      weight_acc_lim_theta: 10.
       control_look_ahead_poses: 2
-      #obstacle_association_force_inclusion_factor: 1.0
-      force_reinit_new_goal_dist: 0.5
+      obstacle_association_force_inclusion_factor: 2.0
+      force_reinit_new_goal_dist: 0.3
+      force_reinit_new_goal_angular: 0.3
+      #global_plan_viapoint_sep: 0.5
+
 
     # Progress checker parameters
     progress_checker:
@@ -71,7 +76,7 @@ move_base_node:
     # Goal checker parameters
     simple_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.3
+      xy_goal_tolerance: 0.2
       yaw_goal_tolerance: 0.2
       stateful: True
 
@@ -88,7 +93,7 @@ local_costmap:
       width: 5
       height: 5
       resolution: 0.05
-      robot_radius: 0.22
+      robot_radius: 0.15
       #footprint: "[[0.36, 0.18], [0.36, -0.18], [-0.415, -0.18], [-0.415, 0.18]]"
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       static_layer:
@@ -127,7 +132,7 @@ global_costmap:
       global_frame: map
       robot_base_frame: base_link
       use_sim_time: True
-      robot_radius: 0.22
+      robot_radius: 0.15
       #footprint: "[[0.36, 0.25], [0.36, -0.25], [-0.415, -0.25], [-0.415, 0.25]]"
       resolution: 0.05
       track_unknown_space: true
