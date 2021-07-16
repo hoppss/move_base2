@@ -119,10 +119,12 @@ MoveBase::MoveBase()
   // Launch a thread to run the costmap node
   controller_costmap_thread_ = std::make_unique<nav2_util::NodeThread>(controller_costmap_ros_);
 
-  spin_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::spinThread, this));
+  // spin_thread_ = std::make_shared<std::thread>(std::bind(&MoveBase::spinThread, this));
 
   reporter_ = std::make_shared<Reporter>();
 
+  auto t = std::make_shared<std::thread>(std::bind(&MoveBase::loop, this));
+  t->detach();
   // last_tracking_pose_in_camera_.pose.position.y = -1;
 }  // construnctor
 
@@ -659,7 +661,8 @@ void MoveBase::handleService(const std::shared_ptr<automation_msgs::srv::Navigat
               "NaviTo: planner [%s] controller [%s], pose [%f, %f, %f], is_cancel [%d],\
               goals_queue_size [%d] ",
               request->planner_id.c_str(), request->controller_id.c_str(), request->goal.pose.position.x,
-              request->goal.pose.position.y, tf2::getYaw(request->goal.pose.orientation), (int)request->is_cancel, goals_queue_.size());
+              request->goal.pose.position.y, tf2::getYaw(request->goal.pose.orientation), (int)request->is_cancel,
+              goals_queue_.size());
 
   // check is_cancel
   if (request->is_cancel)
