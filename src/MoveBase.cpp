@@ -527,6 +527,7 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   get_parameter("odom_topic", default_odom_topic_);
   odom_sub_ = std::make_unique<nav2_util::OdomSmoother>(node, 0.1, default_odom_topic_);
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
+  body_cmd_publisher_ = create_publisher<motion_msgs::msg::SE3VelocityCMD>("body_cmd", 1);
 
   // get mode interfaces
   get_mode_server_ = this->create_service<automation_msgs::srv::NavMode>(
@@ -547,7 +548,7 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   // add_activation("rtabmap");  // cascade lifecycle needed
 
   point_cost_->initialize(shared_from_this(), global_costmap_ros_);
-  base_controller_->initialize(shared_from_this(), tf_, vel_publisher_);
+  base_controller_->initialize(shared_from_this(), tf_, vel_publisher_, body_cmd_publisher_);
 
   reporter_->initialize(shared_from_this());
 
@@ -574,6 +575,7 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
     c_it->second->activate();
   }
   vel_publisher_->on_activate();
+  body_cmd_publisher_->on_activate();
 
   tracking_marker_pub_->on_activate();
 
@@ -605,6 +607,7 @@ nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State&
 
   publishZeroVelocity();
   vel_publisher_->on_deactivate();
+  body_cmd_publisher_->on_deactivate();
   tracking_marker_pub_->on_deactivate();
 
   state_ = NavState::UNACTIVE;
@@ -641,6 +644,7 @@ nav2_util::CallbackReturn MoveBase::on_cleanup(const rclcpp_lifecycle::State& st
   // Release any allocated resources
   odom_sub_.reset();
   vel_publisher_.reset();
+  body_cmd_publisher_.reset();
   goal_checker_->reset();
   tracking_marker_pub_.reset();
 
@@ -1012,6 +1016,20 @@ void MoveBase::publishVelocity(const geometry_msgs::msg::TwistStamped& velocity)
   if (vel_publisher_->is_activated() && this->count_subscribers(vel_publisher_->get_topic_name()) > 0)
   {
     vel_publisher_->publish(std::move(cmd_vel));
+  }
+
+  if (body_cmd_publisher_->is_activated() && this->count_subscribers(body_cmd_publisher_->get_topic_name()) > 0)
+  {
+    motion_msgs::msg::SE3VelocityCMD cmd;
+    cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
+    cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
+    cmd.velocity.linear_x = velocity.twist.linear.x;
+    cmd.velocity.linear_y = velocity.twist.linear.y;
+    cmd.velocity.linear_z = velocity.twist.linear.z;
+    cmd.velocity.angular_x = velocity.twist.angular.x;
+    cmd.velocity.angular_y = velocity.twist.angular.y;
+    cmd.velocity.angular_z = velocity.twist.angular.z;
+    body_cmd_publisher_->publish(std::move(cmd));
   }
 }
 

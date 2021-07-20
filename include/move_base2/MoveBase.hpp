@@ -51,6 +51,8 @@
 
 #include "automation_msgs/srv/nav_mode.hpp"
 #include "automation_msgs/srv/navigate_to_pose.hpp"
+#include "motion_msgs/msg/se3_velocity_cmd.hpp"
+#include "motion_msgs/msg/frameid.hpp"
 
 #include "move_base2/state.hpp"
 #include "move_base2/request_info.hpp"
@@ -193,6 +195,7 @@ protected:
   std::string default_odom_topic_;
 
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher_;
+  rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr body_cmd_publisher_;
 
   // controller, Progress Checker Plugin
   pluginlib::ClassLoader<nav2_core::ProgressChecker> progress_checker_loader_;

@@ -10,6 +10,9 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
+#include "motion_msgs/msg/frameid.hpp"
+#include "motion_msgs/msg/se3_velocity_cmd.hpp"
+
 namespace move_base
 {
 class BaseController
@@ -18,8 +21,10 @@ public:
   BaseController();
   ~BaseController();
 
-  void initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& parent, const std::shared_ptr<tf2_ros::Buffer>& tf,
-                  const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher);
+  void initialize(
+      const rclcpp_lifecycle::LifecycleNode::SharedPtr& parent, const std::shared_ptr<tf2_ros::Buffer>& tf,
+      const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher,
+      const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr body_cmd_publisher);
 
   bool rotate(double);
 
@@ -38,6 +43,7 @@ private:
   rclcpp::Logger logger_;
 
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr body_cmd_pub_;
 };
 
 }  // namespace move_base

@@ -16,7 +16,8 @@ BaseController::~BaseController()
 
 void BaseController::initialize(
     const rclcpp_lifecycle::LifecycleNode::SharedPtr& parent, const std::shared_ptr<tf2_ros::Buffer>& tf,
-    const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher)
+    const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher,
+    const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr body_cmd_publisher)
 {
   node_ = parent;
 
@@ -24,6 +25,7 @@ void BaseController::initialize(
 
   tf_ = tf;
   vel_pub_ = vel_publisher;
+  body_cmd_pub_ = body_cmd_publisher;
 }
 
 bool BaseController::transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
@@ -116,6 +118,20 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& t
       command.angular.z = -degree45;
 
     vel_pub_->publish(command);
+
+    {
+      motion_msgs::msg::SE3VelocityCMD cmd;
+      cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
+      cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
+      cmd.velocity.linear_x = command.linear.x;
+      cmd.velocity.linear_y = command.linear.y;
+      cmd.velocity.linear_z = command.linear.z;
+      cmd.velocity.angular_x = command.angular.x;
+      cmd.velocity.angular_y = command.angular.y;
+      cmd.velocity.angular_z = command.angular.z;
+      body_cmd_pub_->publish(std::move(cmd));
+    }
+
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     if (goal_reached)
     {
@@ -127,6 +143,18 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& t
   }
 
   vel_pub_->publish(command);
+  {
+    motion_msgs::msg::SE3VelocityCMD cmd;
+    cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
+    cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
+    cmd.velocity.linear_x = command.linear.x;
+    cmd.velocity.linear_y = command.linear.y;
+    cmd.velocity.linear_z = command.linear.z;
+    cmd.velocity.angular_x = command.angular.x;
+    cmd.velocity.angular_y = command.angular.y;
+    cmd.velocity.angular_z = command.angular.z;
+    body_cmd_pub_->publish(std::move(cmd));
+  }
   return false;
 }
 
