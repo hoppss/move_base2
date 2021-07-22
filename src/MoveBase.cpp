@@ -162,7 +162,7 @@ void MoveBase::loop()
 
         rclcpp::Time t = now();
 
-        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 0.3)
+        if ((t.seconds() - last_nofity_plan_time_.seconds()) > 0.2)
         {
           run_planner_ = true;
           planner_cond_.notify_one();
@@ -1162,7 +1162,7 @@ void MoveBase::planThread()
       last_valid_plan_time_ = now();
       new_global_plan_ = true;
 
-      if (state_ == NavState::PLANNING)
+      if (state_ == NavState::PLANNING || state_ == NavState::TRACKINGROTATERECOVERY)
       {
         state_ = NavState::CONTROLLING;
         progress_checker_->reset();

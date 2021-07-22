@@ -97,8 +97,8 @@ local_costmap:
       plugins: ["static_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 10.0
-        inflation_radius: 0.55
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.6
         inflate_unknown: true
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -124,7 +124,7 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 10.0
-        inflation_radius: 0.55
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.6
         inflate_unknown: true
       always_send_full_costmap: True
