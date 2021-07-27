@@ -123,6 +123,7 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& t
       motion_msgs::msg::SE3VelocityCMD cmd;
       cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
       cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
+      cmd.velocity.timestamp = clock_->now();
       cmd.velocity.linear_x = command.linear.x;
       cmd.velocity.linear_y = command.linear.y;
       cmd.velocity.linear_z = command.linear.z;
@@ -147,6 +148,7 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& t
     motion_msgs::msg::SE3VelocityCMD cmd;
     cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
     cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
+    cmd.velocity.timestamp = clock_->now();
     cmd.velocity.linear_x = command.linear.x;
     cmd.velocity.linear_y = command.linear.y;
     cmd.velocity.linear_z = command.linear.z;

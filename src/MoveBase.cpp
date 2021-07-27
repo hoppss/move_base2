@@ -1023,6 +1023,7 @@ void MoveBase::publishVelocity(const geometry_msgs::msg::TwistStamped& velocity)
     motion_msgs::msg::SE3VelocityCMD cmd;
     cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
     cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
+    cmd.velocity.timestamp = now();
     cmd.velocity.linear_x = velocity.twist.linear.x;
     cmd.velocity.linear_y = velocity.twist.linear.y;
     cmd.velocity.linear_z = velocity.twist.linear.z;
