@@ -132,7 +132,8 @@ if __name__=="__main__":
 
 
             cmd = SE3VelocityCMD()
-            cmd.sourceid = SE3VelocityCMD.NAVIGATOR
+            #cmd.sourceid = SE3VelocityCMD.NAVIGATOR
+            cmd.sourceid = SE3VelocityCMD.REMOTEC
             cmd.velocity.timestamp = pynode.get_clock().now().to_msg()
             cmd.velocity.frameid.id = Frameid.BODY_FRAME
             cmd.velocity.linear_x = twist.linear.x

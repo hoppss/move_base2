@@ -157,7 +157,7 @@ install(DIRECTORY include/
   DESTINATION include/
 )
 
-install(DIRECTORY launch maps params
+install(DIRECTORY launch maps params scripts
   DESTINATION share/${PROJECT_NAME}
 )
 
