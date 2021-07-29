@@ -9,7 +9,6 @@ from motion_msgs.msg import SE3VelocityCMD, Frameid, SE3Velocity
 import sys, select, termios, tty
 
 msg = """
-CloudMinds Ginger Keyboard Teleop
 ---------------------------
 Moving around:
    u    i    o
