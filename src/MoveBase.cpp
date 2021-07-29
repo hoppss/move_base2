@@ -581,12 +581,19 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
 
   state_ = READY;
 
+  if(is_cancel_) is_cancel_ = false;
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
 nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State& state)
 {
   RCLCPP_INFO(get_logger(), "Deactivating");
+
+  is_cancel_ = true;
+  publishZeroVelocity();
+  body_cmd_publisher_->on_deactivate();
+  vel_publisher_->on_deactivate();
 
   global_costmap_ros_->on_deactivate(state);
   plan_publisher_->on_deactivate();
@@ -605,9 +612,7 @@ nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State&
   }
   controller_costmap_ros_->on_deactivate(state);
 
-  publishZeroVelocity();
-  vel_publisher_->on_deactivate();
-  body_cmd_publisher_->on_deactivate();
+
   tracking_marker_pub_->on_deactivate();
 
   state_ = NavState::UNACTIVE;
