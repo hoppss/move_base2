@@ -14,6 +14,10 @@ class MinimalSubscriber : public rclcpp::Node
 public:
   MinimalSubscriber() : Node("minimal_subscriber")
   {
+    // subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
+    //     "odom_out", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
+
+
     subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "odom_out", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
   };
