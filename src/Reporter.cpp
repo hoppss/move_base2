@@ -26,6 +26,8 @@ void Reporter::report(const int mode, const uint8_t status, std::string descript
   msg.description = description;
 
   reporter_pub_->publish(msg);
+  RCLCPP_INFO(logger_, "mode %d, status %d, description %s", static_cast<int>(mode), static_cast<int>(status),
+              description.c_str());
 }
 
 }  // namespace move_base

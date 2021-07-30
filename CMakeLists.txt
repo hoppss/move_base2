@@ -51,6 +51,7 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(automation_msgs REQUIRED)
 find_package(interaction_msgs REQUIRED)
+find_package(ception_msgs REQUIRED)
 find_package(athena_utils REQUIRED)
 
 ## dependencies
@@ -81,6 +82,7 @@ set(dependencies
   automation_msgs
   interaction_msgs
   athena_utils
+  ception_msgs
 )
 
 ## include directory
@@ -93,7 +95,7 @@ include_directories(include)
 # )
 
 ## node
-add_executable(move_base_node src/main.cpp  src/MoveBase.cpp src/PointCost.cpp src/BaseController.cpp src/Reporter.cpp)
+add_executable(move_base_node src/main.cpp  src/MoveBase.cpp src/PointCost.cpp src/BaseController.cpp src/Reporter.cpp src/TrappedRecovery.cpp)
 target_include_directories(move_base_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

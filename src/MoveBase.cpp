@@ -49,6 +49,7 @@ MoveBase::MoveBase()
   , default_controller_types_{ "teb_local_planner::TebLocalPlannerROS" }
 {
   // setup planner+global_costmap
+  failed_control_cnt_ = 0;
   RCLCPP_INFO(get_logger(), "Creating Planner");
   declare_parameter("navi_mode", "NavMode_AB");  // default
 
@@ -86,6 +87,7 @@ MoveBase::MoveBase()
 
   // collisionfree check
   point_cost_ = std::make_shared<move_base::PointCost>();
+  trapped_recovery_ = std::make_shared<move_base::TrappedRecovery>();
   base_controller_ = std::make_shared<move_base::BaseController>();
   // basecontroller rotate
 
@@ -177,8 +179,17 @@ void MoveBase::loop()
           resetState();
           lock.unlock();
           publishZeroVelocity();
-          reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOPATH,
-                            "no_valid_path_exit_navigation");
+
+          if (trapped_recovery_->isTrapped())
+          {
+            reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_TRAPPED,
+                              "no_valid_plan_robot_base_trapped");
+          }
+          else
+          {
+            reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOPATH,
+                              "no_valid_path_exit_navigation");
+          }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));  // wait a little to release cpu
       }
@@ -210,7 +221,7 @@ void MoveBase::loop()
 
       case WAITING: {
         publishZeroVelocity();
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
         std::unique_lock<std::mutex> lock(planner_mutex_);
         state_ = NavState::PLANNING;
         last_valid_plan_time_ = now();
@@ -365,6 +376,7 @@ MoveBase::~MoveBase()
     plan_thread_->join();
   }
   point_cost_.reset();
+  trapped_recovery_.reset();
   base_controller_.reset();
 
   tracking_pose_sub_.reset();
@@ -525,7 +537,7 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   RCLCPP_INFO(get_logger(), "Controller Server has %s controllers available.", controller_ids_concat_.c_str());
 
   get_parameter("odom_topic", default_odom_topic_);
-  odom_sub_ = std::make_unique<nav2_util::OdomSmoother>(node, 0.1, default_odom_topic_);
+  odom_sub_ = std::make_unique<nav2_util::OdomSmoother>(node, 0.15, default_odom_topic_);
   vel_publisher_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
   body_cmd_publisher_ = create_publisher<motion_msgs::msg::SE3VelocityCMD>("body_cmd", 1);
 
@@ -548,6 +560,7 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
   // add_activation("rtabmap");  // cascade lifecycle needed
 
   point_cost_->initialize(shared_from_this(), global_costmap_ros_);
+  trapped_recovery_->initialize(shared_from_this(), tf_, controller_costmap_ros_);
   base_controller_->initialize(shared_from_this(), tf_, vel_publisher_, body_cmd_publisher_);
 
   reporter_->initialize(shared_from_this());
@@ -581,7 +594,8 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State& s
 
   state_ = READY;
 
-  if(is_cancel_) is_cancel_ = false;
+  if (is_cancel_)
+    is_cancel_ = false;
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -611,7 +625,6 @@ nav2_util::CallbackReturn MoveBase::on_deactivate(const rclcpp_lifecycle::State&
     c_it->second->deactivate();
   }
   controller_costmap_ros_->on_deactivate(state);
-
 
   tracking_marker_pub_->on_deactivate();
 
@@ -930,7 +943,7 @@ void MoveBase::computeControl()
     double sum_dist = 0.0;
     if (!point_cost_->collisionFreeCheck(temp_path, sum_dist))
     {
-      if (sum_dist <= 1.0 && sum_dist > 0)
+      if (sum_dist <= 1.0 && sum_dist > 0 && !trapped_recovery_->ultrasonicFrontFree())
       {
         RCLCPP_WARN(get_logger(), "controller: Front-Close-ObsDetect, dist %f, STOPPING", sum_dist);
         publishZeroVelocity();
@@ -977,12 +990,29 @@ void MoveBase::computeControl()
       std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
     else
       std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
+    failed_control_cnt_ = 0;
   }
   catch (nav2_core::PlannerException& e)
   {
+    ++failed_control_cnt_;
     RCLCPP_ERROR(this->get_logger(), e.what());
     publishZeroVelocity();
-    state_ = NavState::WAITING;
+
+    if (failed_control_cnt_ > 15 && trapped_recovery_->isTrapped())
+    {
+      reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_TRAPPED,
+                        "no_valid_control_robot_base_trapped");
+      // reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOPATH,
+      //                   "no_valid_path_exit_navigation");
+      std::unique_lock<std::mutex> lock(planner_mutex_);
+      resetState();
+      lock.unlock();
+    }
+    else
+    {
+      state_ = NavState::WAITING;
+    }
   }
 
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
@@ -1190,6 +1220,7 @@ void MoveBase::spinThread()
 void MoveBase::resetState()
 {
   new_global_plan_ = false;
+  failed_control_cnt_ = 0;
   last_global_plan_.poses.clear();
   last_nofity_plan_time_ = now();
   last_valid_plan_time_ = now();

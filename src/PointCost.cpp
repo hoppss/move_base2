@@ -2,7 +2,7 @@
 
 namespace move_base
 {
-PointCost::PointCost()
+PointCost::PointCost() : logger_(rclcpp::get_logger("move_base_pointcost"))
 {
   check_distance_ = 2.5;
 }
@@ -21,7 +21,7 @@ unsigned char PointCost::getPointCost(const geometry_msgs::msg::PoseStamped& p)
   unsigned int cell_x, cell_y;
   if (!costmap_->worldToMap(p.pose.position.x, p.pose.position.y, cell_x, cell_y))
   {
-    RCLCPP_WARN(nh_->get_logger(), "PoseCost, costmap.worldToMap failed");
+    RCLCPP_WARN(logger_, "PoseCost, costmap.worldToMap failed");
     return nav2_costmap_2d::LETHAL_OBSTACLE;
   }
   unsigned char cost = costmap_->getCost(cell_x, cell_y);
@@ -40,7 +40,7 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_
   geometry_msgs::msg::PoseStamped current_pose;
   if (!costmap_ros_->getRobotPose(current_pose))
   {
-    RCLCPP_WARN(nh_->get_logger(), "PointCost, costmap get robotpose failed");
+    RCLCPP_WARN(logger_, "PointCost, costmap get robotpose failed");
     return false;
   };
 
@@ -77,13 +77,13 @@ bool PointCost::collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_
     if (sum_dist < 1.0 &&
         (cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE || cost == nav2_costmap_2d::LETHAL_OBSTACLE))
     {
-      RCLCPP_WARN(nh_->get_logger(), "PointCost-Neighbor, cost %d; dist %f, pose [%f, %f], let's replan", cost,
-                  sum_dist, path.poses[i].pose.position.x, path.poses[i].pose.position.y);
+      RCLCPP_WARN(logger_, "PointCost-Neighbor, cost %d; dist %f, pose [%f, %f], let's replan", cost, sum_dist,
+                  path.poses[i].pose.position.x, path.poses[i].pose.position.y);
       return false;
     }
-    else if (cost >= 200 && cost <= nav2_costmap_2d::LETHAL_OBSTACLE)
+    else if (cost >= 220 && cost <= nav2_costmap_2d::LETHAL_OBSTACLE)
     {
-      RCLCPP_WARN(nh_->get_logger(), "PointCost-Remote, cost %d; dist %f, pose [%f, %f], let's replan", cost, sum_dist,
+      RCLCPP_WARN(logger_, "PointCost-Remote, cost %d; dist %f, pose [%f, %f], let's replan", cost, sum_dist,
                   path.poses[i].pose.position.x, path.poses[i].pose.position.y);
       return false;
     }

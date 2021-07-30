@@ -59,6 +59,7 @@
 #include "move_base2/PointCost.hpp"
 #include "move_base2/BaseController.h"
 #include "move_base2/Reporter.h"
+#include "move_base2/TrappedRecovery.hpp"
 
 namespace move_base
 {
@@ -177,6 +178,7 @@ protected:
   rclcpp::Time last_nofity_plan_time_;
   rclcpp::Time last_valid_plan_time_;
   std::atomic_bool new_global_plan_;
+  int failed_control_cnt_;
 
   void planThread();
   std::shared_ptr<std::thread> plan_thread_;
@@ -256,6 +258,7 @@ public:
 
   // obstacle detect
   std::shared_ptr<PointCost> point_cost_;
+  std::shared_ptr<TrappedRecovery> trapped_recovery_;
 
   bool transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
                      geometry_msgs::msg::PoseStamped& out_pose);
