@@ -23,6 +23,7 @@ public:
   void initialize(const nav2_util::LifecycleNode::SharedPtr& nh,
                   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
 
+  bool isValidPose (const geometry_msgs::msg::PoseStamped &p, bool allow_unknown = true);
   unsigned char getPointCost(const geometry_msgs::msg::PoseStamped& p);
 
   bool collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_dist);  // false is collision
