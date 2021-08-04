@@ -8,7 +8,7 @@ move_base_node:
       plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
       use_astar: false
-      allow_unknown: true
+      allow_unknown: false
 
     LNavfn:
       plugin: "lnavfn_planner/LNavfnPlanner"

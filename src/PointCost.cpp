@@ -16,6 +16,17 @@ void PointCost::initialize(const nav2_util::LifecycleNode::SharedPtr& nh,
   costmap_ = costmap_ros_->getCostmap();
 }
 
+bool
+PointCost::isValidPose (const geometry_msgs::msg::PoseStamped &p, bool allow_unknown) {
+    auto cost = getPointCost(p);
+    bool valid = true;
+    if (cost == nav2_costmap_2d::LETHAL_OBSTACLE ||
+        cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE ||
+        (!allow_unknown && cost == nav2_costmap_2d::NO_INFORMATION))
+        valid = false;
+    return valid;
+}
+
 unsigned char PointCost::getPointCost(const geometry_msgs::msg::PoseStamped& p)
 {
   unsigned int cell_x, cell_y;
