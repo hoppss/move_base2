@@ -3,8 +3,8 @@
 <package format="3">
   <name>move_base2</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="mi@todo.todo">mi</maintainer>
+  <description>substitution of ros1 move_base</description>
+  <maintainer email="limao1@xiaomi.com">limao</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
