@@ -82,7 +82,7 @@ move_base_node:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
+      update_frequency: 10.0
       publish_frequency: 1.0
       transform_tolerance: .0
       global_frame: odom
@@ -108,7 +108,7 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 5.0
+      update_frequency: 10.0
       publish_frequency: 1.0
       transform_tolerance: .0
       global_frame: map

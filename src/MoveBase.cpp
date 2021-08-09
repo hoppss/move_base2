@@ -1397,13 +1397,14 @@ void MoveBase::trackingPoseCallback(const geometry_msgs::msg::PoseStamped::Share
     lock.unlock();
   }
 
-  last_valid_plan_time_ = now();
   publishMarker(tar_pose);
 
   if (state_ == NavState::READY)
   {
     // resetState();
     state_ = NavState::PLANNING;
+    last_valid_plan_time_ = now();
+    failed_control_cnt_ = 0;
   }
 }
 
