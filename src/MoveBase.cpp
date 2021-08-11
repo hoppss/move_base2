@@ -1185,7 +1185,7 @@ void MoveBase::planThread()
                   " path to (%.2f, %.2f)",
                   current_request_.planner_id.c_str(), current_request_.goal.pose.position.x,
                   current_request_.goal.pose.position.y);
-      // double time_used = now().seconds() - last_valid_plan_time_.seconds();
+      double nowtime = now().seconds();
       // if (time_used > 10.0)
       // {
       //   RCLCPP_WARN(get_logger(), "plan_thread: planner timeout %f, reset status", time_used);
@@ -1195,6 +1195,21 @@ void MoveBase::planThread()
 
       //   // publishZeroVelocity();
       // }
+
+      {
+        static double last_report_time = 0.0;
+        if (last_report_time == 0.0)
+        {
+          last_report_time = nowtime;
+        }
+        else if ((nowtime - last_report_time) > 3.0)
+        {
+          // continue to audio report
+          reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOPATH,
+                            "no_valid_path_exit_navigation_continue_report");
+          last_report_time = nowtime;
+        }
+      }
       continue;
     }
     else
