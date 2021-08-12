@@ -65,6 +65,7 @@ move_base_node:
       obstacle_association_force_inclusion_factor: 2.0
       force_reinit_new_goal_dist: 0.3
       force_reinit_new_goal_angular: 0.3
+      feasibility_check_no_poses: 8
 
 
     # Progress checker parameters

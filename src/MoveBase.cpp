@@ -255,7 +255,7 @@ void MoveBase::loop()
           geometry_msgs::msg::PoseStamped p_in_camera = last_tracking_pose_in_camera_;
           p_in_camera.header.stamp = rclcpp::Time();
 
-          double a = 0.7;  // angles (rad) to rotate
+          double a = 1.2;  // angles (rad) to rotate
           if (p_in_camera.pose.position.y > 0)
           {
             RCLCPP_INFO(get_logger(), "rotate to left, %f", a);
@@ -277,10 +277,11 @@ void MoveBase::loop()
           }
 
           // get current pose and target pose in odom
-          geometry_msgs::msg::PoseStamped target;
+          geometry_msgs::msg::PoseStamped target, start_pose;
 
           if (getRobotPose(target))
           {
+            start_pose = target;
             double yaw = tf2::getYaw(target.pose.orientation);
             yaw = angles::normalize_angle(yaw + a);
 
@@ -295,15 +296,33 @@ void MoveBase::loop()
             }
 
             publishZeroVelocity();
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
             if (goals_queue_.empty())
             {
-              RCLCPP_INFO(get_logger(), "After Rotate Recovery, no new target, reset State to READY");
-              state_ = NavState::READY;
-              resetState();
+              RCLCPP_INFO(get_logger(), "After Rotate Recovery-1, no new target, return origin pose");
+              i = 0;
+              while (!base_controller_->approachOnlyRotate(start_pose) && goals_queue_.empty() && i++ < 30)
+              {
+                continue;
+              }
+              publishZeroVelocity();
+              if (goals_queue_.empty())
+              {
+                RCLCPP_INFO(get_logger(), "After Rotate Recovery-2, no new target, reset State to READY");
+                state_ = NavState::READY;
+                resetState();
+              }
+              else
+              {
+                RCLCPP_INFO(get_logger(), "After Rotate Recovery-2, find new target, %ld", goals_queue_.size());
+                last_valid_plan_time_ = now();
+                state_ = PLANNING;
+              }
             }
             else
             {
-              RCLCPP_INFO(get_logger(), "After Rotate Recovery, find new target, %ld", goals_queue_.size());
+              RCLCPP_INFO(get_logger(), "After Rotate Recovery-1, find new target, %ld", goals_queue_.size());
               last_valid_plan_time_ = now();
               state_ = PLANNING;
             }

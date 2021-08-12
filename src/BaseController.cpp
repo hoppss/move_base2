@@ -41,7 +41,7 @@ bool BaseController::transformPose(const std::string& target_frame, const geomet
   {
     auto copy_in_pose = in_pose;
     copy_in_pose.header.stamp = rclcpp::Time();
-    out_pose = tf_->transform(in_pose, target_frame);
+    out_pose = tf_->transform(copy_in_pose, target_frame);
     return true;
   }
   catch (tf2::LookupException& ex)
@@ -133,14 +133,16 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& t
       body_cmd_pub_->publish(std::move(cmd));
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     if (goal_reached)
     {
       RCLCPP_INFO(logger_, "rotate finish");
       return true;
     }
     else
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
+    }
   }
 
   vel_pub_->publish(command);
