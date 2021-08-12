@@ -127,5 +127,5 @@ global_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 5.0
         inflation_radius: 0.6
-        inflate_unknown: true
+        inflate_unknown: false
       always_send_full_costmap: True
