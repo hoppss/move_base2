@@ -221,7 +221,7 @@ void MoveBase::loop()
 
       case WAITING: {
         publishZeroVelocity();
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         std::unique_lock<std::mutex> lock(planner_mutex_);
         state_ = NavState::PLANNING;
         last_valid_plan_time_ = now();
