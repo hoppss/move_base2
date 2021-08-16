@@ -172,9 +172,30 @@ void MoveBase::loop()
         }
 
         double time_used = t.seconds() - last_valid_plan_time_.seconds();
-        if (time_used > 10.0)
+        if (navi_mode_ == NavMode::NavMode_Track && time_used > 10.0)
         {
-          RCLCPP_WARN(get_logger(), "planning, planner timeout %f, reset status", time_used);
+          RCLCPP_WARN(get_logger(), "mode %d, planning, planner timeout %f, reset status", static_cast<int>(navi_mode_),
+                      time_used);
+          std::unique_lock<std::mutex> lock(planner_mutex_);
+          resetState();
+          lock.unlock();
+          publishZeroVelocity();
+
+          if (trapped_recovery_->isTrapped())
+          {
+            reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_TRAPPED,
+                              "no_valid_plan_robot_base_trapped");
+          }
+          else
+          {
+            reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOPATH,
+                              "no_valid_path_exit_navigation");
+          }
+        }
+        else if (navi_mode_ == NavMode::NavMode_AB && time_used > 120.0)
+        {
+          RCLCPP_WARN(get_logger(), "mode %d, planning, planner timeout %f, reset status", static_cast<int>(navi_mode_),
+                      time_used);
           std::unique_lock<std::mutex> lock(planner_mutex_);
           resetState();
           lock.unlock();
@@ -1197,6 +1218,8 @@ void MoveBase::planThread()
 
     nav_msgs::msg::Path path = getPlan(start, goal, current_request_.planner_id);
 
+    static double last_report_time = 0.0;  // used for middle-state report
+
     if (path.poses.size() == 0)
     {
       RCLCPP_WARN(get_logger(),
@@ -1205,6 +1228,7 @@ void MoveBase::planThread()
                   current_request_.planner_id.c_str(), current_request_.goal.pose.position.x,
                   current_request_.goal.pose.position.y);
       double nowtime = now().seconds();
+
       // if (time_used > 10.0)
       // {
       //   RCLCPP_WARN(get_logger(), "plan_thread: planner timeout %f, reset status", time_used);
@@ -1216,12 +1240,11 @@ void MoveBase::planThread()
       // }
 
       {
-        static double last_report_time = 0.0;
         if (last_report_time == 0.0)
         {
           last_report_time = nowtime;
         }
-        else if ((nowtime - last_report_time) > 3.0)
+        else if ((nowtime - last_report_time) > 5.0)
         {
           // continue to audio report
           reporter_->report(static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_NOPATH,
@@ -1240,6 +1263,7 @@ void MoveBase::planThread()
       last_global_plan_ = path;
       last_valid_plan_time_ = now();
       new_global_plan_ = true;
+      last_report_time = now().seconds();
 
       if (state_ == NavState::PLANNING || state_ == NavState::TRACKINGROTATERECOVERY)
       {
