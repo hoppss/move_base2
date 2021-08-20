@@ -1,4 +1,4 @@
-// Copyright 2021  Xiaomi Corporation
+// Copyright (c) 2021 Xiaomi Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,20 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef RECEIVE_GOAL_MB_HPP_
-#define RECEIVE_GOAL_MB_HPP_
+
+#ifndef MOVE_BASE2__RECEIVE_GOAL_TO_MB_HPP_
+#define MOVE_BASE2__RECEIVE_GOAL_TO_MB_HPP_
 
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <string>
+#include <memory>
 
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp_lifecycle/lifecycle_node.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
 
-#include <nav2_util/lifecycle_node.hpp>
+#include "nav2_util/lifecycle_node.hpp"
 
 #include "automation_msgs/srv/navigate_to_pose.hpp"
 #include "visualization_msgs/msg/marker.hpp"
@@ -48,18 +51,17 @@ public:
 private:
   void srcPoseHandle(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
-  bool transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
-                     geometry_msgs::msg::PoseStamped& out_pose);
+  bool transformPose(
+    const std::string & target_frame, const geometry_msgs::msg::PoseStamped & in_pose,
+    geometry_msgs::msg::PoseStamped & out_pose);
 
-  // rclcpp_lifecycle::LifecyclePublisher< geometry_msgs::msg::PoseStamped>::SharedPtr tar_pose_pub_;
-  //   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr tar_pose_pub_;
+  // rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr tar_pose_pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr src_pose_sub_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::string target_frame_;
 
-  // double transform_tolerance_;  // set in_pose stamp to zero, use zero timeout for latest tf data
 
   bool start_tracking_;
   geometry_msgs::msg::PoseStamped prev_pose_;
@@ -73,9 +75,9 @@ private:
   void timerCallback();
 
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr tracking_marker_pub_;
-  void publishMarker(geometry_msgs::msg::PoseStamped& pose, int type = 1);
+  void publishMarker(geometry_msgs::msg::PoseStamped & pose, int type = 1);
 };
 
 }  // namespace nav2_receive_goal
 
-#endif  // RECEIVE_GOAL_MB_HPP_
+#endif  // MOVE_BASE2__RECEIVE_GOAL_TO_MB_HPP_

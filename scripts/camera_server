@@ -1,3 +1,0 @@
-ros2 service call /camera_server/change_state lifecycle_msgs/srv/ChangeState "{transition: {id: 1}}"
-ros2 service call /camera_server/change_state lifecycle_msgs/srv/ChangeState "{transition: {id: 3}}"
-ros2 service call /camera_service athena_interfaces/srv/CameraService "{command: 0, args: 'body-interval=3'}"

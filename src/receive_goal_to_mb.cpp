@@ -1,3 +1,22 @@
+// Copyright (c) 2021 Xiaomi Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <memory>
+
 #include "move_base2/receive_goal_to_mb.hpp"
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_util/execution_timer.hpp"
@@ -5,12 +24,10 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include "tf2_ros/create_timer_ros.h"
 
-#include <iostream>
-#include <iomanip>
-
 namespace nav2_receive_goal
 {
-ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_tracking_(false)
+ReceiveGoalMb::ReceiveGoalMb()
+: rclcpp::Node("receive_goal_to_mb"), start_tracking_(false)
 //: nav2_util::LifecycleNode("receive_goal", "", true)
 {
   declare_parameter("target_frame", rclcpp::ParameterValue("map"));
@@ -20,20 +37,29 @@ ReceiveGoalMb::ReceiveGoalMb() : rclcpp::Node("receive_goal_to_mb"), start_track
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   auto timer_interface =
-      std::make_shared<tf2_ros::CreateTimerROS>(get_node_base_interface(), get_node_timers_interface());
+    std::make_shared<tf2_ros::CreateTimerROS>(
+    get_node_base_interface(),
+    get_node_timers_interface());
   tf_buffer_->setCreateTimerInterface(timer_interface);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   rclcpp::SensorDataQoS sub_qos;
   sub_qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
   src_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-      "tracking_pose", sub_qos, std::bind(&ReceiveGoalMb::srcPoseHandle, this, std::placeholders::_1));
+    "tracking_pose", sub_qos,
+    std::bind(&ReceiveGoalMb::srcPoseHandle, this, std::placeholders::_1));
 
-  timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&ReceiveGoalMb::timerCallback, this));
+  timer_ =
+    this->create_wall_timer(
+    std::chrono::milliseconds(200),
+    std::bind(&ReceiveGoalMb::timerCallback, this));
 
-  tracking_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("tracking_marker", 10);
+  tracking_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
+    "tracking_marker",
+    10);
 
-  // tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose", rclcpp::SystemDefaultsQoS());
+  // tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose",
+  // rclcpp::SystemDefaultsQoS());
   req_ = std::make_shared<automation_msgs::srv::NavigateToPose::Request>();
   navi_to_client_ = this->create_client<automation_msgs::srv::NavigateToPose>("NaviTo");
 }
@@ -69,7 +95,8 @@ ReceiveGoalMb::~ReceiveGoalMb()
 //        rclcpp::SystemDefaultsQoS(),
 //        std::bind(&ReceiveGoalMb::srcPoseHandle, this, std::placeholders::_1));
 //
-//    tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose", rclcpp::SystemDefaultsQoS());
+//    tar_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("tar_pose",
+//                    rclcpp::SystemDefaultsQoS());
 //}
 //
 // nav2_util::CallbackReturn
@@ -102,8 +129,7 @@ void ReceiveGoalMb::srcPoseHandle(const geometry_msgs::msg::PoseStamped::SharedP
   src_pose.header.stamp.nanosec = 0;
 
   geometry_msgs::msg::PoseStamped tar_pose;
-  if (false == transformPose(target_frame_, src_pose, tar_pose))
-  {
+  if (false == transformPose(target_frame_, src_pose, tar_pose)) {
     RCLCPP_ERROR(this->get_logger(), "tracking_pose, transform pose failed");
     return;
   }
@@ -114,41 +140,34 @@ void ReceiveGoalMb::srcPoseHandle(const geometry_msgs::msg::PoseStamped::SharedP
   publishMarker(tar_pose);
 }
 
-bool ReceiveGoalMb::transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
-                                  geometry_msgs::msg::PoseStamped& out_pose)
+bool ReceiveGoalMb::transformPose(
+  const std::string & target_frame, const geometry_msgs::msg::PoseStamped & in_pose,
+  geometry_msgs::msg::PoseStamped & out_pose)
 {
-  if (in_pose.header.frame_id == target_frame)
-  {
+  if (in_pose.header.frame_id == target_frame) {
     out_pose = in_pose;
     return true;
   }
 
-  try
-  {
+  try {
     auto copy_in_pose = in_pose;
     copy_in_pose.header.stamp = rclcpp::Time();
 
     out_pose = tf_buffer_->transform(copy_in_pose, target_frame);
     return true;
-  }
-  catch (tf2::LookupException& ex)
-  {
-    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: No Transform available Error looking up robot pose: %s\n", ex.what());
-  }
-  catch (tf2::ConnectivityException& ex)
-  {
-    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Connectivity Error looking up robot pose: %s\n", ex.what());
-  }
-  catch (tf2::ExtrapolationException& ex)
-  {
-    RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Extrapolation Error looking up robot pose: %s\n", ex.what());
-  }
-  catch (tf2::TimeoutException& ex)
-  {
+  } catch (tf2::LookupException & ex) {
+    RCLCPP_ERROR(
+      get_logger(), "ReceiveGoalMb: No Transform available Error looking up robot pose: %s\n",
+      ex.what());
+  } catch (tf2::ConnectivityException & ex) {
+    RCLCPP_ERROR(
+      get_logger(), "ReceiveGoalMb: Connectivity Error looking up robot pose: %s\n", ex.what());
+  } catch (tf2::ExtrapolationException & ex) {
+    RCLCPP_ERROR(
+      get_logger(), "ReceiveGoalMb: Extrapolation Error looking up robot pose: %s\n", ex.what());
+  } catch (tf2::TimeoutException & ex) {
     RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Transform timeout with tolerance, %s", ex.what());
-  }
-  catch (tf2::TransformException& ex)
-  {
+  } catch (tf2::TransformException & ex) {
     RCLCPP_ERROR(get_logger(), "ReceiveGoalMb: Failed to transform %s", ex.what());
   }
   return false;
@@ -158,8 +177,7 @@ void ReceiveGoalMb::timerCallback()
 {
   RCLCPP_DEBUG_THROTTLE(this->get_logger(), *get_clock(), 2000, "receive_goal ...");
 
-  if (goals_vec_.empty())
-  {
+  if (goals_vec_.empty()) {
     return;
   }
 
@@ -171,8 +189,7 @@ void ReceiveGoalMb::timerCallback()
     goals_vec_.clear();        // clear old data
   }
 
-  if (nav2_util::geometry_utils::euclidean_distance(goal.pose, prev_pose_.pose) > 0.2)
-  {
+  if (nav2_util::geometry_utils::euclidean_distance(goal.pose, prev_pose_.pose) > 0.2) {
     //
     req_->planner_id = "DMP";
     req_->controller_id = "FollowPath";
@@ -183,26 +200,26 @@ void ReceiveGoalMb::timerCallback()
 
     // define async callback function
     auto response_received_callback =
-        [this](rclcpp::Client<automation_msgs::srv::NavigateToPose>::SharedFuture result) {
-          auto response = result.get();
-          if (response->result == true && rclcpp::ok())
-          {
-            RCLCPP_INFO(this->get_logger(), "client callback success %s.", response->description.c_str());
-          }
-          else
-          {
-            RCLCPP_ERROR(this->get_logger(), "client callback failed %s.", response->description.c_str());
-          }
-        };
+      [this](rclcpp::Client<automation_msgs::srv::NavigateToPose>::SharedFuture result) {
+        auto response = result.get();
+        if (response->result == true && rclcpp::ok()) {
+          RCLCPP_INFO(
+            this->get_logger(), "client callback success %s.",
+            response->description.c_str());
+        } else {
+          RCLCPP_ERROR(
+            this->get_logger(), "client callback failed %s.",
+            response->description.c_str());
+        }
+      };
 
-    if (navi_to_client_->wait_for_service(std::chrono::milliseconds(100)))
-    {
+    if (navi_to_client_->wait_for_service(std::chrono::milliseconds(100))) {
       auto future = navi_to_client_->async_send_request(req_, response_received_callback);
     }
   }
 }
 
-void ReceiveGoalMb::publishMarker(geometry_msgs::msg::PoseStamped& pose, int type)
+void ReceiveGoalMb::publishMarker(geometry_msgs::msg::PoseStamped & pose, int type)
 {
   visualization_msgs::msg::Marker marker;
   marker.header = pose.header;
@@ -223,8 +240,7 @@ void ReceiveGoalMb::publishMarker(geometry_msgs::msg::PoseStamped& pose, int typ
   marker.lifetime.sec = 0;
   marker.lifetime.nanosec = 0;
 
-  if (type != 1)
-  {
+  if (type != 1) {
     marker.id = 100;
     marker.color.g = 0;
     marker.color.r = 1;

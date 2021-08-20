@@ -1,4 +1,4 @@
-// Copyright 2021  Xiaomi Corporation
+// Copyright (c) 2021 Xiaomi Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MOVE_BASE_HPP
-#define MOVE_BASE_HPP
+#ifndef MOVE_BASE2__MOVEBASE_HPP_
+#define MOVE_BASE2__MOVEBASE_HPP_
 
 #include <chrono>
 #include <string>
@@ -87,17 +87,18 @@ public:
   using ControllerMap = std::unordered_map<std::string, nav2_core::Controller::Ptr>;
 
   // planner
-  nav_msgs::msg::Path getPlan(const geometry_msgs::msg::PoseStamped& start, const geometry_msgs::msg::PoseStamped& goal,
-                              const std::string& planner_id);
-  void publishPlan(const nav_msgs::msg::Path& path);
+  nav_msgs::msg::Path getPlan(
+    const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal,
+    const std::string & planner_id);
+  void publishPlan(const nav_msgs::msg::Path & path);
 
-  bool getRobotPose(geometry_msgs::msg::PoseStamped& pose);
+  bool getRobotPose(geometry_msgs::msg::PoseStamped & pose);
 
   // controller
-  bool findControllerId(const std::string& c_name, std::string& current_controller);
+  bool findControllerId(const std::string & c_name, std::string & current_controller);
   void computeControl();
   void computeAndPublishVelocity();
-  void publishVelocity(const geometry_msgs::msg::TwistStamped& velocity);
+  void publishVelocity(const geometry_msgs::msg::TwistStamped & velocity);
   void publishZeroVelocity();
   bool isGoalReached();
 
@@ -106,7 +107,7 @@ public:
     return (std::abs(velocity) > threshold) ? velocity : 0.0;
   }
 
-  geometry_msgs::msg::Twist getThresholdedTwist(const geometry_msgs::msg::Twist& twist)
+  geometry_msgs::msg::Twist getThresholdedTwist(const geometry_msgs::msg::Twist & twist)
   {
     geometry_msgs::msg::Twist twist_thresh;
     twist_thresh.linear.x = getThresholdedVelocity(twist.linear.x, min_x_velocity_threshold_);
@@ -131,8 +132,9 @@ protected:
   // service server
   rclcpp::Service<automation_msgs::srv::NavigateToPose>::SharedPtr service_handle_;
 
-  void handleService(const std::shared_ptr<automation_msgs::srv::NavigateToPose::Request> request,
-                     std::shared_ptr<automation_msgs::srv::NavigateToPose::Response> response);
+  void handleService(
+    const std::shared_ptr<automation_msgs::srv::NavigateToPose::Request> request,
+    std::shared_ptr<automation_msgs::srv::NavigateToPose::Response> response);
 
   std::queue<requestInfo> goals_queue_;
 
@@ -143,31 +145,31 @@ protected:
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_configure(const rclcpp_lifecycle::State& state) override;
+  nav2_util::CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Activate member variables
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_activate(const rclcpp_lifecycle::State& state) override;
+  nav2_util::CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Deactivate member variables
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_deactivate(const rclcpp_lifecycle::State& state) override;
+  nav2_util::CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Reset member variables
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_cleanup(const rclcpp_lifecycle::State& state) override;
+  nav2_util::CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
   /**
    * @brief Called when in shutdown state
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State& state) override;
+  nav2_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
   // Planner
   PlannerMap planners_;
@@ -185,7 +187,7 @@ protected:
   // Global Costmap
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> global_costmap_ros_;
   std::unique_ptr<nav2_util::NodeThread> global_costmap_thread_;
-  nav2_costmap_2d::Costmap2D* global_costmap_;
+  nav2_costmap_2d::Costmap2D * global_costmap_;
 
   // Global, function, status
   nav_msgs::msg::Path last_global_plan_;
@@ -211,7 +213,8 @@ protected:
   std::string default_odom_topic_;
 
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher_;
-  rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr body_cmd_publisher_;
+  rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr
+    body_cmd_publisher_;
 
   // controller, Progress Checker Plugin
   pluginlib::ClassLoader<nav2_core::ProgressChecker> progress_checker_loader_;
@@ -248,7 +251,7 @@ protected:
   geometry_msgs::msg::Pose end_pose_;
 
   // Clock for test funciton time cost
-  rclcpp::Clock steady_clock_{ RCL_STEADY_TIME };
+  rclcpp::Clock steady_clock_{RCL_STEADY_TIME};
 
   // TF buffer
   std::shared_ptr<tf2_ros::Buffer> tf_;
@@ -262,8 +265,9 @@ public:
   rclcpp::Service<automation_msgs::srv::NavMode>::SharedPtr get_mode_server_;
   rclcpp::Client<rcl_interfaces::srv::ListParameters>::SharedPtr param_client_;
 
-  void getModeCallback(const std::shared_ptr<automation_msgs::srv::NavMode::Request> req,
-                       std::shared_ptr<automation_msgs::srv::NavMode::Response> res);
+  void getModeCallback(
+    const std::shared_ptr<automation_msgs::srv::NavMode::Request> req,
+    std::shared_ptr<automation_msgs::srv::NavMode::Response> res);
 
   bool setControllerTrackingMode(bool enable);
 
@@ -274,15 +278,17 @@ public:
   std::shared_ptr<PointCost> point_cost_;
   std::shared_ptr<TrappedRecovery> trapped_recovery_;
 
-  bool transformPose(const std::string& target_frame, const geometry_msgs::msg::PoseStamped& in_pose,
-                     geometry_msgs::msg::PoseStamped& out_pose);
+  bool transformPose(
+    const std::string & target_frame, const geometry_msgs::msg::PoseStamped & in_pose,
+    geometry_msgs::msg::PoseStamped & out_pose);
 
 private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_pose_sub_;
   void trackingPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
-  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>::SharedPtr tracking_marker_pub_;
-  void publishMarker(geometry_msgs::msg::PoseStamped& pose, int type = 1);
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>::SharedPtr
+    tracking_marker_pub_;
+  void publishMarker(geometry_msgs::msg::PoseStamped & pose, int type = 1);
   geometry_msgs::msg::PoseStamped pre_tracking_pose_;
   void updateTrackingGoal();
 
@@ -296,4 +302,4 @@ private:
 
 }  // namespace move_base
 
-#endif  // MOVE_BASE_HPP
+#endif  // MOVE_BASE2__MOVEBASE_HPP_

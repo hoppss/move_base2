@@ -1,3 +1,16 @@
+// Copyright (c) 2021 Xiaomi Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 #include <iostream>
 #include <string>
 #include <memory>
@@ -18,25 +31,27 @@ using namespace std::chrono_literals;
 class MinimalSubscriber : public rclcpp::Node
 {
 public:
-  MinimalSubscriber() : Node("minimal_subscriber")
+  MinimalSubscriber()
+  : Node("minimal_subscriber")
   {
     costmap_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
-        "/local_costmap/costmap", 10, std::bind(&MinimalSubscriber::costmap_callback, this, _1));
+      "/local_costmap/costmap", 10, std::bind(&MinimalSubscriber::costmap_callback, this, _1));
 
     scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "/scan", 10, std::bind(&MinimalSubscriber::laser_callback, this, _1));
+      "/scan", 10, std::bind(&MinimalSubscriber::laser_callback, this, _1));
 
     scan_pub_ = this->create_publisher<sensor_msgs::msg::LaserScan>("/ns1/scan", 10);
 
     vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-        "/ns1/cmd_vel", 10, std::bind(&MinimalSubscriber::vel_callback, this, _1));
+      "/ns1/cmd_vel", 10, std::bind(&MinimalSubscriber::vel_callback, this, _1));
 
     vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
-    init_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ns1/initialpose", 10);
+    init_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
+      "/ns1/initialpose", 10);
 
-    timer_ = this->create_wall_timer(1000ms, std ::bind(&MinimalSubscriber::timer_callback, this));
-  };
+    timer_ = this->create_wall_timer(1000ms, std::bind(&MinimalSubscriber::timer_callback, this));
+  }
 
 private:
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
@@ -81,8 +96,7 @@ private:
 
     ++cnt;
 
-    if (cnt == 3)
-    {
+    if (cnt == 3) {
       RCLCPP_INFO(get_logger(), "publish initpose");
       geometry_msgs::msg::PoseWithCovarianceStamped p;
       p.header.stamp = now();
@@ -97,7 +111,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr init_pose_pub_;
 };
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
 

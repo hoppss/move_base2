@@ -1,4 +1,4 @@
-// Copyright 2021  Xiaomi Corporation
+// Copyright (c) 2021 Xiaomi Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef POINTCOST_H_
-#define POINTCOST_H_
+
+#ifndef MOVE_BASE2__POINTCOST_HPP_
+#define MOVE_BASE2__POINTCOST_HPP_
 
 #include <string>
 #include <vector>
@@ -33,23 +34,25 @@ public:
   PointCost();
   ~PointCost() = default;
 
-  void initialize(const nav2_util::LifecycleNode::SharedPtr& nh,
-                  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
+  void initialize(
+    const nav2_util::LifecycleNode::SharedPtr & nh,
+    std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
 
-  bool isValidPose(const geometry_msgs::msg::PoseStamped& p, bool allow_unknown = true);
-  unsigned char getPointCost(const geometry_msgs::msg::PoseStamped& p);
+  bool isValidPose(const geometry_msgs::msg::PoseStamped & p, bool allow_unknown = true);
+  unsigned char getPointCost(const geometry_msgs::msg::PoseStamped & p);
 
-  bool collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_dist);  // false is collision
+  // false is collision
+  bool collisionFreeCheck(const nav_msgs::msg::Path & path, double & sum_dist);
 
 private:
   nav2_util::LifecycleNode::SharedPtr nh_;
   rclcpp::Logger logger_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
-  nav2_costmap_2d::Costmap2D* costmap_;
+  nav2_costmap_2d::Costmap2D * costmap_;
 
   double check_distance_;
 };
 
 }  // namespace move_base
 
-#endif  // POINTCOST_H_
+#endif  // MOVE_BASE2__POINTCOST_HPP_

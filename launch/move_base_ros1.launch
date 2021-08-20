@@ -1,5 +1,0 @@
-<launch>
-    <node pkg="move_base2" exec="move_base_node" name="move_base_node">
-        <param from="$(find-pkg-share move_base2)/params/nav2_params.yaml"/>
-    </node>
-</launch>

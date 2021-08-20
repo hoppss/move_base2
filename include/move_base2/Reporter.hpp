@@ -1,4 +1,4 @@
-// Copyright 2021  Xiaomi Corporation
+// Copyright (c) 2021 Xiaomi Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,17 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef __REPORTER__
-#define __REPORTER__
 
-#include <rclcpp/rclcpp.hpp>
-#include <nav2_util/lifecycle_node.hpp>
-#include <tf2_ros/buffer.h>
-#include <tf2/convert.h>
-#include <tf2/utils.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <geometry_msgs/msg/pose_stamped.hpp>
-#include <geometry_msgs/msg/twist.hpp>
+#ifndef MOVE_BASE2__REPORTER_HPP_
+#define MOVE_BASE2__REPORTER_HPP_
+#include <string>
+
+#include "rclcpp/rclcpp.hpp"
+#include "nav2_util/lifecycle_node.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2/convert.h"
+#include "tf2/utils.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
+
 #include "automation_msgs/msg/nav_status.hpp"
 
 namespace move_base
@@ -32,7 +35,7 @@ public:
   Reporter();
   ~Reporter();
 
-  void initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& parent);
+  void initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr & parent);
   void report(const int mode, const uint8_t status, std::string description);
 
 private:
@@ -40,9 +43,10 @@ private:
   rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
   rclcpp::Logger logger_;
 
-  rclcpp_lifecycle::LifecyclePublisher<automation_msgs::msg::NavStatus>::SharedPtr reporter_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<automation_msgs::msg::NavStatus>
+  ::SharedPtr reporter_pub_;
 };
 
 }  // namespace move_base
 
-#endif
+#endif  // MOVE_BASE2__REPORTER_HPP_

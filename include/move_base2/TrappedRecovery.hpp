@@ -1,4 +1,4 @@
-// Copyright 2021  Xiaomi Corporation
+// Copyright (c) 2021 Xiaomi Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,20 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef __TR__
-#define __TR__
 
-#include <rclcpp/rclcpp.hpp>
-#include <nav2_util/lifecycle_node.hpp>
+#ifndef MOVE_BASE2__TRAPPEDRECOVERY_HPP_
+#define MOVE_BASE2__TRAPPEDRECOVERY_HPP_
 
-#include <geometry_msgs/msg/twist.hpp>
-#include <geometry_msgs/msg/point.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <nav_msgs/msg/path.hpp>
-#include <nav2_costmap_2d/costmap_2d_ros.hpp>
-#include <nav2_costmap_2d/footprint.hpp>
-#include <visualization_msgs/msg/marker.hpp>
-#include <sensor_msgs/msg/range.hpp>
+#include <string>
+#include <memory>
+#include <map>
+#include <vector>
+
+#include "rclcpp/rclcpp.hpp"
+#include "nav2_util/lifecycle_node.hpp"
+
+#include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/point.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "nav_msgs/msg/path.hpp"
+#include "nav2_costmap_2d/costmap_2d_ros.hpp"
+#include "nav2_costmap_2d/footprint.hpp"
+#include "visualization_msgs/msg/marker.hpp"
+#include "sensor_msgs/msg/range.hpp"
 
 #include "ception_msgs/msg/around.hpp"
 
@@ -32,11 +38,7 @@
 #include "move_base2/line_iterator.hpp"
 #include "angles/angles.h"
 
-#include <string>
-#include <memory>
-#include <map>
-
-#include <eigen3/Eigen/Eigen>
+#include "eigen3/Eigen/Eigen"
 
 namespace move_base
 {
@@ -46,8 +48,9 @@ public:
   TrappedRecovery();
   ~TrappedRecovery();
 
-  void initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& nh, std::shared_ptr<tf2_ros::Buffer> tf,
-                  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
+  void initialize(
+    const rclcpp_lifecycle::LifecycleNode::SharedPtr & nh, std::shared_ptr<tf2_ros::Buffer> tf,
+    std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
 
   void setMode(int i);
 
@@ -68,21 +71,23 @@ public:
   //     Middle_Left = 7,
   //   };
 
-  void transformFootprint(double x, double y, double theta,
-                          const std::vector<geometry_msgs::msg::Point>& footprint_spec,
-                          std::vector<geometry_msgs::msg::Point>& oriented_footprint);
+  void transformFootprint(
+    double x, double y, double theta,
+    const std::vector<geometry_msgs::msg::Point> & footprint_spec,
+    std::vector<geometry_msgs::msg::Point> & oriented_footprint);
 
   double lineCost(int x0, int x1, int y0, int y1);
 
   // collision check interface
   double scoreFootprint(std::vector<geometry_msgs::msg::Point> oriented_footprint);
-  bool transformPose(const std::string frame, const geometry_msgs::msg::PoseStamped& in_pose,
-                     geometry_msgs::msg::PoseStamped& out_pose);
+  bool transformPose(
+    const std::string frame, const geometry_msgs::msg::PoseStamped & in_pose,
+    geometry_msgs::msg::PoseStamped & out_pose);
 
   double getPointCost(int x, int y);
 
-  // ultrasonic
-  bool collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_dist);  // false is collision
+  // ultrasonic, false is collision
+  bool collisionFreeCheck(const nav_msgs::msg::Path & path, double & sum_dist);
   bool ultrasonicFrontFree();
 
 private:
@@ -103,7 +108,8 @@ private:
   //   std::map<Direction, geometry_msgs::msg::Point> footprint_map_;
   //   std::map<int, Eigen::Vector2d> direction_map_;
   //   void initFootprint();
-  //   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>> escapte_direction_pub_;
+  //   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::Marker>>
+  //        escapte_direction_pub_;
   //   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> escape_path_pub_;
   //   void publishMarker(const std::vector<Eigen::Vector2d>& pts, double angle, int i = 0);
 
@@ -116,4 +122,4 @@ private:
 };
 
 }  // namespace move_base
-#endif
+#endif  // MOVE_BASE2__TRAPPEDRECOVERY_HPP_

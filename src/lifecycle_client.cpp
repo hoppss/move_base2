@@ -1,3 +1,16 @@
+// Copyright (c) 2021 Xiaomi Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 #include <chrono>
 #include <memory>
 #include <string>
@@ -14,20 +27,18 @@
 
 using namespace std::chrono_literals;
 
-static constexpr char const* lifecycle_node = "move_base_node";
+static constexpr char const * lifecycle_node = "move_base_node";
 
-template <typename FutureT, typename WaitTimeT>
-std::future_status wait_for_result(FutureT& future, WaitTimeT time_to_wait)
+template<typename FutureT, typename WaitTimeT>
+std::future_status wait_for_result(FutureT & future, WaitTimeT time_to_wait)
 {
   auto end = std::chrono::steady_clock::now() + time_to_wait;
   std::chrono::milliseconds wait_period(100);
   std::future_status status = std::future_status::timeout;
-  do
-  {
+  do {
     auto now = std::chrono::steady_clock::now();
     auto time_left = end - now;
-    if (time_left <= std::chrono::seconds(0))
-    {
+    if (time_left <= std::chrono::seconds(0)) {
       break;
     }
     status = future.wait_for((time_left < wait_period) ? time_left : wait_period);
@@ -38,14 +49,17 @@ std::future_status wait_for_result(FutureT& future, WaitTimeT time_to_wait)
 class LifecycleServiceClient : public rclcpp::Node
 {
 public:
-  explicit LifecycleServiceClient(const std::string& node_name) : Node(node_name)
+  explicit LifecycleServiceClient(const std::string & node_name)
+  : Node(node_name)
   {
   }
 
   void init()
   {
-    client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>("/move_base_node/get_state");
-    client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>("/move_base_node/change_state");
+    client_get_state_ = this->create_client<lifecycle_msgs::srv::GetState>(
+      "/move_base_node/get_state");
+    client_change_state_ = this->create_client<lifecycle_msgs::srv::ChangeState>(
+      "/move_base_node/change_state");
   }
 
   /// Requests the current state of the node
@@ -64,9 +78,10 @@ public:
   {
     auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
 
-    if (!client_get_state_->wait_for_service(time_out))
-    {
-      RCLCPP_ERROR(get_logger(), "Service %s is not available.", client_get_state_->get_service_name());
+    if (!client_get_state_->wait_for_service(time_out)) {
+      RCLCPP_ERROR(
+        get_logger(), "Service %s is not available.",
+        client_get_state_->get_service_name());
       return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
     }
 
@@ -78,21 +93,19 @@ public:
     // If the request times out, we return an unknown state.
     auto future_status = wait_for_result(future_result, time_out);
 
-    if (future_status != std::future_status::ready)
-    {
-      RCLCPP_ERROR(get_logger(), "Server time out while getting current state for node %s", lifecycle_node);
+    if (future_status != std::future_status::ready) {
+      RCLCPP_ERROR(
+        get_logger(), "Server time out while getting current state for node %s", lifecycle_node);
       return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
     }
 
     // We have an succesful answer. So let's print the current state.
-    if (future_result.get())
-    {
-      RCLCPP_INFO(get_logger(), "Node %s has current state %s.", lifecycle_node,
-                  future_result.get()->current_state.label.c_str());
+    if (future_result.get()) {
+      RCLCPP_INFO(
+        get_logger(), "Node %s has current state %s.", lifecycle_node,
+        future_result.get()->current_state.label.c_str());
       return future_result.get()->current_state.id;
-    }
-    else
-    {
+    } else {
       RCLCPP_ERROR(get_logger(), "Failed to get current state for node %s", lifecycle_node);
       return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
     }
@@ -119,9 +132,9 @@ public:
     auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
     request->transition.id = transition;
 
-    if (!client_change_state_->wait_for_service(time_out))
-    {
-      RCLCPP_ERROR(get_logger(), "Service %s is not available.", client_change_state_->get_service_name());
+    if (!client_change_state_->wait_for_service(time_out)) {
+      RCLCPP_ERROR(
+        get_logger(), "Service %s is not available.", client_change_state_->get_service_name());
       return false;
     }
 
@@ -132,21 +145,21 @@ public:
     // If the request times out, we return an unknown state.
     auto future_status = wait_for_result(future_result, time_out);
 
-    if (future_status != std::future_status::ready)
-    {
-      RCLCPP_ERROR(get_logger(), "Server time out while getting current state for node %s", lifecycle_node);
+    if (future_status != std::future_status::ready) {
+      RCLCPP_ERROR(
+        get_logger(), "Server time out while getting current state for node %s", lifecycle_node);
       return false;
     }
 
     // We have an answer, let's print our success.
-    if (future_result.get()->success)
-    {
-      RCLCPP_INFO(get_logger(), "Transition %d successfully triggered.", static_cast<int>(transition));
+    if (future_result.get()->success) {
+      RCLCPP_INFO(
+        get_logger(), "Transition %d successfully triggered.", static_cast<int>(transition));
       return true;
-    }
-    else
-    {
-      RCLCPP_WARN(get_logger(), "Failed to trigger transition %u", static_cast<unsigned int>(transition));
+    } else {
+      RCLCPP_WARN(
+        get_logger(), "Failed to trigger transition %u",
+        static_cast<unsigned int>(transition));
       return false;
     }
   }
@@ -170,12 +183,10 @@ void callee_script(std::shared_ptr<LifecycleServiceClient> lc_client)
 
   // configure
   {
-    if (!lc_client->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))
-    {
+    if (!lc_client->change_state(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE)) {
       return;
     }
-    if (!lc_client->get_state())
-    {
+    if (!lc_client->get_state()) {
       return;
     }
   }
@@ -183,16 +194,13 @@ void callee_script(std::shared_ptr<LifecycleServiceClient> lc_client)
   // activate
   {
     time_between_state_changes.sleep();
-    if (!rclcpp::ok())
-    {
+    if (!rclcpp::ok()) {
       return;
     }
-    if (!lc_client->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
-    {
+    if (!lc_client->change_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE)) {
       return;
     }
-    if (!lc_client->get_state())
-    {
+    if (!lc_client->get_state()) {
       return;
     }
   }
@@ -288,7 +296,7 @@ void callee_script(std::shared_ptr<LifecycleServiceClient> lc_client)
     */
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   // force flush of the stdout buffer.
   // this ensures a correct sync of all prints
@@ -303,7 +311,8 @@ int main(int argc, char** argv)
   rclcpp::executors::SingleThreadedExecutor exe;
   exe.add_node(lc_client);
 
-  std::shared_future<void> script = std::async(std::launch::async, std::bind(callee_script, lc_client));
+  std::shared_future<void> script =
+    std::async(std::launch::async, std::bind(callee_script, lc_client));
   exe.spin_until_future_complete(script);
 
   rclcpp::shutdown();
