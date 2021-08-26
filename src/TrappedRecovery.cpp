@@ -21,7 +21,7 @@
 namespace move_base
 {
 TrappedRecovery::TrappedRecovery()
-: controller_costmap_(nullptr), logger_(rclcpp::get_logger("move_base_trapped"))
+  : controller_costmap_(nullptr), logger_(rclcpp::get_logger("move_base_trapped"))
 {
   // 0 is AB-NAV
   // 1 is TRACKING
@@ -32,10 +32,9 @@ TrappedRecovery::~TrappedRecovery()
 {
 }
 
-void TrappedRecovery::initialize(
-  const rclcpp_lifecycle::LifecycleNode::SharedPtr & nh,
-  std::shared_ptr<tf2_ros::Buffer> tf,
-  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
+void TrappedRecovery::initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& nh,
+                                 std::shared_ptr<tf2_ros::Buffer> tf,
+                                 std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
 {
   node_ = nh;
   //   auto node = node_.lock();
@@ -52,16 +51,15 @@ void TrappedRecovery::initialize(
   base_frame_ = controller_costmap_->getBaseFrameID();
 
   // vel_pub_ = vel_pub;
-  RCLCPP_INFO(
-    logger_, "global_frame %s, local_frame %s", global_frame_.c_str(),
-    base_frame_.c_str());
+  RCLCPP_INFO(logger_, "global_frame %s, local_frame %s", global_frame_.c_str(),
+              base_frame_.c_str());
 
   footprint_ = controller_costmap_->getRobotFootprint();
 
-  for (size_t i = 0; i < footprint_.size(); ++i) {
-    RCLCPP_INFO(
-      logger_, "i %d, [%f, %f, %f]", i, footprint_[i].x, footprint_[i].y,
-      footprint_[i].z);
+  for (size_t i = 0; i < footprint_.size(); ++i)
+  {
+    RCLCPP_INFO(logger_, "i %d, [%f, %f, %f]", i, footprint_[i].x, footprint_[i].y,
+                footprint_[i].z);
   }
   // initFootprint();
 
@@ -74,8 +72,8 @@ void TrappedRecovery::initialize(
 
   // ultrasonic
   ultrasonic_sub_ = node_->create_subscription<ception_msgs::msg::Around>(
-    "ObstacleDetection", rclcpp::SystemDefaultsQoS(),
-    std::bind(&TrappedRecovery::ultrasonicCallback, this, std::placeholders::_1));
+      "ObstacleDetection", rclcpp::SystemDefaultsQoS(),
+      std::bind(&TrappedRecovery::ultrasonicCallback, this, std::placeholders::_1));
 }
 
 void TrappedRecovery::setMode(int i)
@@ -87,7 +85,8 @@ bool TrappedRecovery::isTrapped()
 {
   // 1. get current pose in odom frame, in odom
   geometry_msgs::msg::PoseStamped global_pose;
-  if (!controller_costmap_->getRobotPose(global_pose)) {
+  if (!controller_costmap_->getRobotPose(global_pose))
+  {
     RCLCPP_ERROR(logger_, "runRecovery, getRobotPose failed");
     return false;  // inner error, ignore
   }
@@ -95,18 +94,21 @@ bool TrappedRecovery::isTrapped()
   std::vector<geometry_msgs::msg::Point> oriented_footprint;
 
   double yaw = tf2::getYaw(global_pose.pose.orientation);
-  transformFootprint(
-    global_pose.pose.position.x, global_pose.pose.position.y, yaw, footprint_,
-    oriented_footprint);
+  transformFootprint(global_pose.pose.position.x, global_pose.pose.position.y, yaw, footprint_,
+                     oriented_footprint);
 
-  if (oriented_footprint.empty()) {
+  if (oriented_footprint.empty())
+  {
     RCLCPP_ERROR(logger_, "runRecovery, transform footprint failed - empty");
     return false;  // inner error, ignore
-  } else {
+  }
+  else
+  {
     RCLCPP_INFO(logger_, "oriented footprint size %d", oriented_footprint.size());
   }
 
-  if (scoreFootprint(oriented_footprint) == -1) {
+  if (scoreFootprint(oriented_footprint) == -1)
+  {
     RCLCPP_WARN(logger_, "Footprint trapped in obstacle map");
     return true;
   }
@@ -273,20 +275,19 @@ double TrappedRecovery::scoreFootprint(std::vector<geometry_msgs::msg::Point> or
   double line_cost = 0.0;
   double footprint_cost = 0.0;
 
-  for (size_t i = 0; i < oriented_footprint.size() - 1; ++i) {
+  for (size_t i = 0; i < oriented_footprint.size() - 1; ++i)
+  {
     // get the cell coord of the first point
-    if (!controller_costmap_->getCostmap()->worldToMap(
-        oriented_footprint[i].x,
-        oriented_footprint[i].y, x0, y0))
+    if (!controller_costmap_->getCostmap()->worldToMap(oriented_footprint[i].x,
+                                                       oriented_footprint[i].y, x0, y0))
     {
       RCLCPP_ERROR(logger_, "scoreFootprint, get cell coord error.");
       return -1;  // indicates inner error
     }
 
     // get the cell coord of the second point
-    if (!controller_costmap_->getCostmap()->worldToMap(
-        oriented_footprint[i + 1].x, oriented_footprint[i + 1].y, x1,
-        y1))
+    if (!controller_costmap_->getCostmap()->worldToMap(oriented_footprint[i + 1].x,
+                                                       oriented_footprint[i + 1].y, x1, y1))
     {
       RCLCPP_ERROR(logger_, "scoreFootprint, get cell coord error..");
       return -1;
@@ -294,7 +295,8 @@ double TrappedRecovery::scoreFootprint(std::vector<geometry_msgs::msg::Point> or
 
     line_cost = lineCost(x0, x1, y0, y1);
 
-    if (line_cost == -1) {
+    if (line_cost == -1)
+    {
       return line_cost;  // -1 for LETHAL_OBSTACLE
     }
     footprint_cost = std::max(line_cost, footprint_cost);
@@ -302,18 +304,16 @@ double TrappedRecovery::scoreFootprint(std::vector<geometry_msgs::msg::Point> or
 
   // we also need to connect the first point in the footprint to the last point
   // get the cell coord of the last point
-  if (!controller_costmap_->getCostmap()->worldToMap(
-      oriented_footprint.back().x,
-      oriented_footprint.back().y, x0, y0))
+  if (!controller_costmap_->getCostmap()->worldToMap(oriented_footprint.back().x,
+                                                     oriented_footprint.back().y, x0, y0))
   {
     RCLCPP_ERROR(logger_, "scoreFootprint, get cell coord error...");
     return -1;
   }
 
   // get the cell coord of the first point
-  if (!controller_costmap_->getCostmap()->worldToMap(
-      oriented_footprint.front().x, oriented_footprint.front().y, x1,
-      y1))
+  if (!controller_costmap_->getCostmap()->worldToMap(oriented_footprint.front().x,
+                                                     oriented_footprint.front().y, x1, y1))
   {
     RCLCPP_ERROR(logger_, "scoreFootprint, get cell coord error....");
     return -1;
@@ -321,7 +321,8 @@ double TrappedRecovery::scoreFootprint(std::vector<geometry_msgs::msg::Point> or
 
   line_cost = lineCost(x0, x1, y0, y1);
 
-  if (line_cost == -1) {
+  if (line_cost == -1)
+  {
     return line_cost;  // -1 for LETHAL_OBSTACLE
   }
   footprint_cost = std::max(line_cost, footprint_cost);
@@ -332,15 +333,15 @@ double TrappedRecovery::scoreFootprint(std::vector<geometry_msgs::msg::Point> or
 }
 
 void TrappedRecovery::transformFootprint(
-  double x, double y, double theta,
-  const std::vector<geometry_msgs::msg::Point> & footprint_spec,
-  std::vector<geometry_msgs::msg::Point> & oriented_footprint)
+    double x, double y, double theta, const std::vector<geometry_msgs::msg::Point>& footprint_spec,
+    std::vector<geometry_msgs::msg::Point>& oriented_footprint)
 {
   // build the oriented footprint at a given location
   oriented_footprint.clear();
   double cos_th = cos(theta);
   double sin_th = sin(theta);
-  for (unsigned int i = 0; i < footprint_spec.size(); ++i) {
+  for (unsigned int i = 0; i < footprint_spec.size(); ++i)
+  {
     geometry_msgs::msg::Point new_pt;
     new_pt.x = x + (footprint_spec[i].x * cos_th - footprint_spec[i].y * sin_th);
     new_pt.y = y + (footprint_spec[i].x * sin_th + footprint_spec[i].y * cos_th);
@@ -419,17 +420,20 @@ double TrappedRecovery::lineCost(int x0, int x1, int y0, int y1)
   double line_cost = 0.0;  // save max cost
   double point_cost = -1.0;
 
-  for (LineIterator line(x0, y0, x1, y1); line.isValid(); line.advance()) {
+  for (LineIterator line(x0, y0, x1, y1); line.isValid(); line.advance())
+  {
     point_cost = getPointCost(line.getX(), line.getY());  // Score the current point
 
-    if (point_cost == nav2_costmap_2d::LETHAL_OBSTACLE) {
+    if (point_cost == nav2_costmap_2d::LETHAL_OBSTACLE)
+    {
       point_cost = -1;
       return point_cost;
     }
 
     // no-info might be handled specially
 
-    if (line_cost < point_cost) {
+    if (line_cost < point_cost)
+    {
       line_cost = point_cost;
     }
   }
@@ -437,21 +441,25 @@ double TrappedRecovery::lineCost(int x0, int x1, int y0, int y1)
   return line_cost;
 }
 
-bool TrappedRecovery::transformPose(
-  const std::string frame, const geometry_msgs::msg::PoseStamped & in_pose,
-  geometry_msgs::msg::PoseStamped & out_pose)
+bool TrappedRecovery::transformPose(const std::string frame,
+                                    const geometry_msgs::msg::PoseStamped& in_pose,
+                                    geometry_msgs::msg::PoseStamped& out_pose)
 {
-  if (in_pose.header.frame_id == frame) {
+  if (in_pose.header.frame_id == frame)
+  {
     out_pose = in_pose;
     return true;
   }
 
-  try {
+  try
+  {
     // no block implementation
     tf_->transform(in_pose, out_pose, frame, tf2::durationFromSec(0.0));
     out_pose.header.frame_id = frame;
     return true;
-  } catch (tf2::TransformException & ex) {
+  }
+  catch (tf2::TransformException& ex)
+  {
     RCLCPP_ERROR(logger_, "Exception in transformPose: %s", ex.what());
   }
   return false;
@@ -525,21 +533,23 @@ bool TrappedRecovery::ultrasonicFrontFree()
   sensor_msgs::msg::Range temp = last_ultrasonic_range_;
   double temp_stamp_t = rclcpp::Time(temp.header.stamp).seconds();
 
-  if (temp_stamp_t == 0.0) {
+  if (temp_stamp_t == 0.0)
+  {
     // no ultrasonic data received, ignore
     RCLCPP_INFO_THROTTLE(logger_, *clock_, 1000, "ultrasonicFrontFree, no data: %f", temp.range);
     return true;
   }
 
-  if (std::fabs(now.seconds() - temp_stamp_t) > 0.5) {
+  if (std::fabs(now.seconds() - temp_stamp_t) > 0.5)
+  {
     // ultrasonic msg is not current, ignore
-    RCLCPP_INFO_THROTTLE(
-      logger_, *clock_, 1000, "ultrasonicFrontFree, msg paused, [%.3f, %.3f]", now.seconds(),
-      temp_stamp_t);
+    RCLCPP_INFO_THROTTLE(logger_, *clock_, 1000, "ultrasonicFrontFree, msg paused, [%.3f, %.3f]",
+                         now.seconds(), temp_stamp_t);
     return true;
   }
 
-  if (temp.range < 0.3) {
+  if (temp.range < 0.3)
+  {
     RCLCPP_INFO(logger_, "ultrasonicFrontFree, dangerous %f", temp.range);
     return false;
   }

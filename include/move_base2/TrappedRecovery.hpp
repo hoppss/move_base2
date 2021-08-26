@@ -48,9 +48,9 @@ public:
   TrappedRecovery();
   ~TrappedRecovery();
 
-  void initialize(
-    const rclcpp_lifecycle::LifecycleNode::SharedPtr & nh, std::shared_ptr<tf2_ros::Buffer> tf,
-    std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
+  void initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& nh,
+                  std::shared_ptr<tf2_ros::Buffer> tf,
+                  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
 
   void setMode(int i);
 
@@ -71,23 +71,21 @@ public:
   //     Middle_Left = 7,
   //   };
 
-  void transformFootprint(
-    double x, double y, double theta,
-    const std::vector<geometry_msgs::msg::Point> & footprint_spec,
-    std::vector<geometry_msgs::msg::Point> & oriented_footprint);
+  void transformFootprint(double x, double y, double theta,
+                          const std::vector<geometry_msgs::msg::Point>& footprint_spec,
+                          std::vector<geometry_msgs::msg::Point>& oriented_footprint);
 
   double lineCost(int x0, int x1, int y0, int y1);
 
   // collision check interface
   double scoreFootprint(std::vector<geometry_msgs::msg::Point> oriented_footprint);
-  bool transformPose(
-    const std::string frame, const geometry_msgs::msg::PoseStamped & in_pose,
-    geometry_msgs::msg::PoseStamped & out_pose);
+  bool transformPose(const std::string frame, const geometry_msgs::msg::PoseStamped& in_pose,
+                     geometry_msgs::msg::PoseStamped& out_pose);
 
   double getPointCost(int x, int y);
 
   // ultrasonic, false is collision
-  bool collisionFreeCheck(const nav_msgs::msg::Path & path, double & sum_dist);
+  bool collisionFreeCheck(const nav_msgs::msg::Path& path, double& sum_dist);
   bool ultrasonicFrontFree();
 
 private:

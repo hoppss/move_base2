@@ -38,22 +38,23 @@ public:
   BaseController();
   ~BaseController();
 
-  void initialize(
-    const rclcpp_lifecycle::LifecycleNode::SharedPtr & parent,
-    const std::shared_ptr<tf2_ros::Buffer> & tf,
-    const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher,
-    const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr \
-    body_cmd_publisher);
+  void
+  initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& parent,
+             const std::shared_ptr<tf2_ros::Buffer>& tf,
+             const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
+                 vel_publisher,
+             const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr
+                 body_cmd_publisher);
 
   bool rotate(double);
 
   // tools
-  bool getCurrentPose(geometry_msgs::msg::PoseStamped & odom_pose);
-  bool transformPose(
-    const std::string & target_frame, const geometry_msgs::msg::PoseStamped & in_pose,
-    geometry_msgs::msg::PoseStamped & out_pose);
+  bool getCurrentPose(geometry_msgs::msg::PoseStamped& odom_pose);
+  bool transformPose(const std::string& target_frame,
+                     const geometry_msgs::msg::PoseStamped& in_pose,
+                     geometry_msgs::msg::PoseStamped& out_pose);
 
-  bool approachOnlyRotate(const geometry_msgs::msg::PoseStamped & target);
+  bool approachOnlyRotate(const geometry_msgs::msg::PoseStamped& target);
 
 private:
   std::string name_;
