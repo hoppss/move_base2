@@ -71,8 +71,8 @@
 #include "move_base2/state.hpp"
 #include "move_base2/request_info.hpp"
 #include "move_base2/PointCost.hpp"
-#include "move_base2/BaseController.h"
-#include "move_base2/Reporter.h"
+#include "move_base2/BaseController.hpp"
+#include "move_base2/Reporter.hpp"
 #include "move_base2/TrappedRecovery.hpp"
 
 namespace move_base

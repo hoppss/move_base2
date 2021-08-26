@@ -116,6 +116,31 @@ bool TrappedRecovery::isTrapped()
   return false;
 }
 
+bool TrappedRecovery::isTrappedInPose(double x, double y, double yaw)
+{
+  std::vector<geometry_msgs::msg::Point> oriented_footprint;
+
+  transformFootprint(x, y, yaw, footprint_, oriented_footprint);
+
+  if (oriented_footprint.empty())
+  {
+    RCLCPP_ERROR(logger_, "runRecovery, transform footprint failed - empty");
+    return false;  // inner error, ignore
+  }
+  else
+  {
+    RCLCPP_INFO(logger_, "oriented footprint size %d", oriented_footprint.size());
+  }
+
+  if (scoreFootprint(oriented_footprint) == -1)
+  {
+    RCLCPP_WARN(logger_, "Footprint trapped in obstacle map");
+    return true;
+  };
+
+  return false;
+}
+
 // bool TrappedRecovery::runRecovery()
 // {
 //   // 1. get current pose in odom frame, in odom
@@ -531,13 +556,30 @@ bool TrappedRecovery::ultrasonicFrontFree()
 {
   rclcpp::Time now = clock_->now();
   sensor_msgs::msg::Range temp = last_ultrasonic_range_;
+
+  if (!isUltrasonicCurrent())
+    return true;  // invalid ultrasonic data just ignore and go continue
+
+  if (temp.range < 0.3)
+  {
+    RCLCPP_INFO(logger_, "ultrasonicFrontFree, dangerous %f", temp.range);
+    return false;
+  }
+
+  return true;
+}
+
+bool TrappedRecovery::isUltrasonicCurrent()
+{
+  rclcpp::Time now = clock_->now();
+  sensor_msgs::msg::Range temp = last_ultrasonic_range_;
   double temp_stamp_t = rclcpp::Time(temp.header.stamp).seconds();
 
   if (temp_stamp_t == 0.0)
   {
     // no ultrasonic data received, ignore
     RCLCPP_INFO_THROTTLE(logger_, *clock_, 1000, "ultrasonicFrontFree, no data: %f", temp.range);
-    return true;
+    return false;
   }
 
   if (std::fabs(now.seconds() - temp_stamp_t) > 0.5)
@@ -545,12 +587,6 @@ bool TrappedRecovery::ultrasonicFrontFree()
     // ultrasonic msg is not current, ignore
     RCLCPP_INFO_THROTTLE(logger_, *clock_, 1000, "ultrasonicFrontFree, msg paused, [%.3f, %.3f]",
                          now.seconds(), temp_stamp_t);
-    return true;
-  }
-
-  if (temp.range < 0.3)
-  {
-    RCLCPP_INFO(logger_, "ultrasonicFrontFree, dangerous %f", temp.range);
     return false;
   }
 

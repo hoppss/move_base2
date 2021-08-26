@@ -645,7 +645,8 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State& 
 
   point_cost_->initialize(shared_from_this(), global_costmap_ros_);
   trapped_recovery_->initialize(shared_from_this(), tf_, controller_costmap_ros_);
-  base_controller_->initialize(shared_from_this(), tf_, vel_publisher_, body_cmd_publisher_);
+  base_controller_->initialize(shared_from_this(), tf_, vel_publisher_, body_cmd_publisher_,
+                               trapped_recovery_);
 
   reporter_->initialize(shared_from_this());
 

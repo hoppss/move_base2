@@ -14,7 +14,7 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include "move_base2/BaseController.h"
+#include "move_base2/BaseController.hpp"
 
 namespace move_base
 {
@@ -36,7 +36,8 @@ void BaseController::initialize(
     const std::shared_ptr<tf2_ros::Buffer>& tf,
     const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_publisher,
     const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr
-        body_cmd_publisher)
+        body_cmd_publisher,
+    const std::shared_ptr<move_base::TrappedRecovery>& trapped_ptr)
 {
   node_ = parent;
 
@@ -45,6 +46,7 @@ void BaseController::initialize(
   tf_ = tf;
   vel_pub_ = vel_publisher;
   body_cmd_pub_ = body_cmd_publisher;
+  trapped_ = trapped_ptr;
 }
 
 bool BaseController::transformPose(const std::string& target_frame,
@@ -113,14 +115,44 @@ bool BaseController::getCurrentPose(geometry_msgs::msg::PoseStamped& odom_pose)
 
 bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& target)
 {
+  // 0. zero cmd
+  geometry_msgs::msg::Twist command;
+  command.linear.x = 0.0;
+  command.angular.z = 0.0;
+
+  // firstly, collsion check
+  geometry_msgs::msg::PoseStamped current_pose, copy_target;
+  copy_target = target;
+  std::vector<geometry_msgs::msg::PoseStamped> result;
+  if (getCurrentPose(current_pose))
+  {
+    interpolateToTarget(current_pose, copy_target, result);
+
+    if (!result.empty())
+    {
+      for (size_t i = 0; i < result.size(); ++i)
+      {
+        if (trapped_->isTrappedInPose(result[i].pose.position.x, result[i].pose.position.y,
+                                      tf2::getYaw(result[i].pose.orientation)))
+        {
+          RCLCPP_ERROR(logger_, "in-place rotate collision check illegal");
+          publishVelocity(command);
+          return false;
+        }
+      }
+    }
+  }
+  else
+  {
+    publishVelocity(command);
+    return false;
+  }
+
+  // approach
   geometry_msgs::msg::PoseStamped p_in_b;
 
   double theta = 0.0;
   bool goal_reached = false;
-
-  geometry_msgs::msg::Twist command;
-  command.linear.x = 0.0;
-  command.angular.z = 0.0;
 
   if (transformPose("base_footprint", target, p_in_b))
   {
@@ -136,29 +168,11 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& t
     }
 
     if (theta > degree45)
-    {
       command.angular.z = degree45;
-    }
     if (theta < -degree45)
-    {
       command.angular.z = -degree45;
-    }
 
-    vel_pub_->publish(command);
-
-    {
-      motion_msgs::msg::SE3VelocityCMD cmd;
-      cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
-      cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
-      cmd.velocity.timestamp = clock_->now();
-      cmd.velocity.linear_x = command.linear.x;
-      cmd.velocity.linear_y = command.linear.y;
-      cmd.velocity.linear_z = command.linear.z;
-      cmd.velocity.angular_x = command.angular.x;
-      cmd.velocity.angular_y = command.angular.y;
-      cmd.velocity.angular_z = command.angular.z;
-      body_cmd_pub_->publish(std::move(cmd));
-    }
+    publishVelocity(command);
 
     if (goal_reached)
     {
@@ -167,91 +181,81 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped& t
     }
     else
     {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
     }
   }
 
-  vel_pub_->publish(command);
-  {
-    motion_msgs::msg::SE3VelocityCMD cmd;
-    cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
-    cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
-    cmd.velocity.timestamp = clock_->now();
-    cmd.velocity.linear_x = command.linear.x;
-    cmd.velocity.linear_y = command.linear.y;
-    cmd.velocity.linear_z = command.linear.z;
-    cmd.velocity.angular_x = command.angular.x;
-    cmd.velocity.angular_y = command.angular.y;
-    cmd.velocity.angular_z = command.angular.z;
-    body_cmd_pub_->publish(std::move(cmd));
-  }
+  publishVelocity(command);  // zero if error occurs
   return false;
 }
 
-bool BaseController::rotate(double angle)
+bool BaseController::interpolateToTarget(geometry_msgs::msg::PoseStamped& start,
+                                         geometry_msgs::msg::PoseStamped& goal,
+                                         std::vector<geometry_msgs::msg::PoseStamped>& result_v)
 {
-  //   geometry_msgs::msg::PoseStamped p_in_b, p_in_o;
+  result_v.clear();
 
-  //   tf2::toMsg(tf2::Transform::getIdentity(), p_in_b.pose);
-  //   tf2::toMsg(tf2::Transform::getIdentity(), p_in_o.pose);
+  tf2::Quaternion q_start, q_goal;
+  tf2::fromMsg(start.pose.orientation, q_start);
+  tf2::fromMsg(goal.pose.orientation, q_goal);
 
-  //   p_in_b.header.frame_id = "base_footprint";
+  geometry_msgs::msg::PoseStamped p = start;
 
-  //   tf2::Quaternion q;
-  //   q.setRPY(0.0, 0.0, angle);
-  //   p_in_b.pose.orientation = tf2::toMsg(q);
+  double delta_angle =
+      angles::shortest_angular_distance(tf2::getYaw(q_goal), tf2::getYaw(q_start));  // goal-start
+  double step_length = 15.0 / 180.0 * M_PI;  // every 15° collision check
 
-  //   try
-  //   {
-  //     // tf_->waitForTransform("odom", "base_footprint", tf2::durationFromSec(1.0));
-  //     p_in_o = tf_->transform(p_in_b, "odom", tf2::durationFromSec(0.0));
-  //   }
-  //   catch (tf2::LookupException& ex)
-  //   {
-  //     RCLCPP_ERROR(logger_,
-  //                  "No Transform available Error looking up robot pose: %s\n", ex.what());
-  //     return false;
-  //   }
-  //   catch (tf2::ConnectivityException& ex)
-  //   {
-  //     RCLCPP_ERROR(logger_, "Connectivity Error looking up robot pose: %s\n", ex.what());
-  //     return false;
-  //   }
-  //   catch (tf2::ExtrapolationException& ex)
-  //   {
-  //     RCLCPP_ERROR(logger_, "Extrapolation Error looking up robot pose: %s\n", ex.what());
-  //     return false;
-  //   }
-  //   catch (tf2::TimeoutException& ex)
-  //   {
-  //     RCLCPP_ERROR(logger_, "Transform timeout with tolerance");
-  //     return false;
-  //   }
-  //   catch (tf2::TransformException& ex)
-  //   {
-  //     RCLCPP_ERROR(logger_, "Failed to transform from base to odom");
-  //     return false;
-  //   }
+  int steps = std::floor(std::abs(delta_angle) / step_length);
 
-  double speed = M_PI_4;
-  int cnt = static_cast<int>(std::ceil(std::fabs(angle) / speed * 15));
+  result_v.push_back(start);  // push current pose firstly
 
-  while (cnt > 0)
+  if (steps > 0)
   {
-    RCLCPP_INFO(logger_, "rotating cnt %d", cnt);
-    geometry_msgs::msg::Twist cmd_vel;
-    cmd_vel.linear.x = 0.0;
-    cmd_vel.angular.z = std::copysign(speed, angle);
-
-    vel_pub_->publish(cmd_vel);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    cnt--;
+    for (int i = 1; i <= steps; ++i)
+    {
+      tf2::Quaternion temp_q = q_start.slerp(q_goal, i * 1.0 / steps);
+      p.pose.orientation = tf2::toMsg(temp_q);
+      result_v.push_back(p);  // internal interpolate point
+    }
   }
 
-  RCLCPP_INFO(logger_, "rotate finish");
+  result_v.push_back(goal);  // push goal pose finally
+
+  // show result to debug
+  // std::cout << "interpolation from [" << tf2::getYaw(start.pose.orientation) << " : "
+  //           << tf2::getYaw(goal.pose.orientation) << "], delta_angle is " << delta_angle
+  //           << ", steps: " << steps << ", sizes %ld" << result_v.size() << std::endl;
+
+  // for (size_t i = 0; i < result_v.size(); ++i)
+  // {
+  //   std::cout << "result " << i << " " << tf2::getYaw(result_v[i].pose.orientation) << " -> "
+  //             << tf2::getYaw(result_v[i].pose.orientation) / M_PI * 180.0 << std::endl;
+  // }
+
+  std::cout << std::endl;
+
   return true;
+}
+
+void BaseController::publishVelocity(const geometry_msgs::msg::Twist& command)
+{
+  geometry_msgs::msg::Twist temp = command;
+
+  vel_pub_->publish(temp);  // twist cmd
+
+  motion_msgs::msg::SE3VelocityCMD cmd;
+  cmd.sourceid = motion_msgs::msg::SE3VelocityCMD::NAVIGATOR;
+  cmd.velocity.frameid.id = motion_msgs::msg::Frameid::BODY_FRAME;
+  cmd.velocity.timestamp = clock_->now();
+  cmd.velocity.linear_x = temp.linear.x;
+  cmd.velocity.linear_y = temp.linear.y;
+  cmd.velocity.linear_z = temp.linear.z;
+  cmd.velocity.angular_x = temp.angular.x;
+  cmd.velocity.angular_y = temp.angular.y;
+  cmd.velocity.angular_z = temp.angular.z;
+  body_cmd_pub_->publish(std::move(cmd));  // se3 cmd
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));  // rate-control
 }
 
 }  // namespace move_base

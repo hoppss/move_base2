@@ -55,6 +55,8 @@ public:
   void setMode(int i);
 
   bool isTrapped();
+  bool isTrappedInPose(double x, double y, double yaw);
+  bool isUltrasonicCurrent();
 
   //   bool runRecovery();
 

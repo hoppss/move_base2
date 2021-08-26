@@ -26,10 +26,11 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "angles/angles.h"
 
 #include "motion_msgs/msg/frameid.hpp"
 #include "motion_msgs/msg/se3_velocity_cmd.hpp"
-
+#include "move_base2/TrappedRecovery.hpp"
 namespace move_base
 {
 class BaseController
@@ -44,9 +45,8 @@ public:
              const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
                  vel_publisher,
              const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr
-                 body_cmd_publisher);
-
-  bool rotate(double);
+                 body_cmd_publisher,
+             const std::shared_ptr<move_base::TrappedRecovery>& trapped_ptr);
 
   // tools
   bool getCurrentPose(geometry_msgs::msg::PoseStamped& odom_pose);
@@ -55,6 +55,13 @@ public:
                      geometry_msgs::msg::PoseStamped& out_pose);
 
   bool approachOnlyRotate(const geometry_msgs::msg::PoseStamped& target);
+
+  // only in-place interpolate, interpolate its yaw-angle in odom frame
+  bool interpolateToTarget(geometry_msgs::msg::PoseStamped& start,
+                           geometry_msgs::msg::PoseStamped& goal,
+                           std::vector<geometry_msgs::msg::PoseStamped>& result_v);
+
+  void publishVelocity(const geometry_msgs::msg::Twist& command);
 
 private:
   std::string name_;
@@ -65,6 +72,7 @@ private:
 
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
   rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr body_cmd_pub_;
+  std::shared_ptr<move_base::TrappedRecovery> trapped_;
 };
 
 }  // namespace move_base
