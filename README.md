@@ -63,7 +63,7 @@ launch启动时关键参数:
     ros2 run nav2_map_server map_saver_cli -f ~/map
 
     # 启动导航
-    ros2 launch move_base2 navigation_launch_tb3.launch
+    ros2 launch move_base2 navigation_launch_tb3.py
 
     # lifecycle 激活
     ros2 run move_base2  lifecycle_client
