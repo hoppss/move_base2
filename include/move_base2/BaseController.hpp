@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "rclcpp/rclcpp.hpp"
 #include "nav2_util/lifecycle_node.hpp"
@@ -40,28 +41,31 @@ public:
   ~BaseController();
 
   void
-  initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& parent,
-             const std::shared_ptr<tf2_ros::Buffer>& tf,
-             const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
-                 vel_publisher,
-             const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr
-                 body_cmd_publisher,
-             const std::shared_ptr<move_base::TrappedRecovery>& trapped_ptr);
+  initialize(
+    const rclcpp_lifecycle::LifecycleNode::SharedPtr & parent,
+    const std::shared_ptr<tf2_ros::Buffer> & tf,
+    const rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
+    vel_publisher,
+    const rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr
+    body_cmd_publisher,
+    const std::shared_ptr<move_base::TrappedRecovery> & trapped_ptr);
 
   // tools
-  bool getCurrentPose(geometry_msgs::msg::PoseStamped& odom_pose);
-  bool transformPose(const std::string& target_frame,
-                     const geometry_msgs::msg::PoseStamped& in_pose,
-                     geometry_msgs::msg::PoseStamped& out_pose);
+  bool getCurrentPose(geometry_msgs::msg::PoseStamped & odom_pose);
+  bool transformPose(
+    const std::string & target_frame,
+    const geometry_msgs::msg::PoseStamped & in_pose,
+    geometry_msgs::msg::PoseStamped & out_pose);
 
-  bool approachOnlyRotate(const geometry_msgs::msg::PoseStamped& target);
+  bool approachOnlyRotate(const geometry_msgs::msg::PoseStamped & target);
 
   // only in-place interpolate, interpolate its yaw-angle in odom frame
-  bool interpolateToTarget(geometry_msgs::msg::PoseStamped& start,
-                           geometry_msgs::msg::PoseStamped& goal,
-                           std::vector<geometry_msgs::msg::PoseStamped>& result_v);
+  bool interpolateToTarget(
+    geometry_msgs::msg::PoseStamped & start,
+    geometry_msgs::msg::PoseStamped & goal,
+    std::vector<geometry_msgs::msg::PoseStamped> & result_v);
 
-  void publishVelocity(const geometry_msgs::msg::Twist& command);
+  void publishVelocity(const geometry_msgs::msg::Twist & command);
 
 private:
   std::string name_;

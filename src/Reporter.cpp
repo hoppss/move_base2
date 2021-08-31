@@ -16,7 +16,8 @@
 
 namespace move_base
 {
-Reporter::Reporter() : name_("reporter"), logger_(rclcpp::get_logger("move_base_reporter"))
+Reporter::Reporter()
+: name_("reporter"), logger_(rclcpp::get_logger("move_base_reporter"))
 {
 }
 
@@ -25,7 +26,7 @@ Reporter::~Reporter()
   reporter_pub_.reset();
 }
 
-void Reporter::initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr& parent)
+void Reporter::initialize(const rclcpp_lifecycle::LifecycleNode::SharedPtr & parent)
 {
   node_ = parent;
   reporter_pub_ = node_->create_publisher<automation_msgs::msg::NavStatus>("move_base_status", 10);
@@ -40,8 +41,9 @@ void Reporter::report(const int mode, const uint8_t status, std::string descript
   msg.description = description;
 
   reporter_pub_->publish(msg);
-  RCLCPP_INFO(logger_, "mode %d, status %d, descript %s", static_cast<int>(mode),
-              static_cast<int>(status), description.c_str());
+  RCLCPP_INFO(
+    logger_, "mode %d, status %d, descript %s", static_cast<int>(mode),
+    static_cast<int>(status), description.c_str());
 }
 
 }  // namespace move_base
