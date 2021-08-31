@@ -2,7 +2,7 @@
 ---------
 
 ## Introduction
-Like move_base, the move_base2 package provides an implementation of an service/ a topic that, given a goal in the world, will attempt to reach it with a mobile base. The move_base2 node links together a global and local controller to accomplish its global navigation task. It supports any global planner adhering to the nav2_core::GlobalPlanner interface specified in the nav2_core package and any local controller adhering to the nav2_core::Controller interface specified in the nav2_core package. The move_base2 node also maintains two costmaps, one for the global planner, and one for a local controller (see the nav2_costmap_2d package) that are used to accomplish navigation tasks.  
+Like move_base, the move_base2 package provides an implementation of an service/ a topic that, given a goal in the world, will attempt to reach it with a mobile base. The move_base2 node links together a global and local controller to accomplish its global navigation task. It supports any global planner adhering to the nav2_core::GlobalPlanner interface specified in the nav2_core package and any local controller adhering to the nav2_core::Controller interface specified in the nav2_core package. The move_base2 node also maintains two costmaps, one for the global planner, and one for a local controller (see the nav2_costmap_2d package) that are used to accomplish navigation tasks.
 
 On the basis of MoveBase, MoveBase2 retains the basic navigation framework, replacing Actionlib with ROS2 Service (the most ideal situation is Action) to solve the asynchronous navigation problem from the ROS system layer. At the same time, specific collision detection and recovery behaviors are formulated for the tracking mode.
 
@@ -41,10 +41,10 @@ ros2 service call /NaviTo automation_msgs/srv/NavigateToPose "{}"
 ```
 ros2 service call /get_mode automation_msgs/srv/NavMode "{sub_mode: 4}"
 ```
-- /move_base_node/change_state: Bringup the navigation stack. Usage: 
+- /move_base_node/change_state: Bringup the navigation stack. Usage:
 ```
 ros2 service call lifecycle_msgs/srv/ChangeState "{trasition: {id=1}}"
-ros2 service call lifecycle_msgs/srv/ChangeState "{trasition: {id=3}}" 
+ros2 service call lifecycle_msgs/srv/ChangeState "{trasition: {id=3}}"
 ```
 
 ### Subscribed Topics
@@ -68,7 +68,7 @@ Dependencies:
     ```
     $ sudo apt install ros-<distro>-navigation2 ros-<distro>-nav2-bringup
     ```
-    
+
 * Install Athena Interfaces by Sources
     ```
     $ mkdir -p ~/<workspace dir>/src
@@ -88,7 +88,7 @@ Dependencies:
 
 ## License
 ```
-    // Copyright 2021  Xiaomi Corporation 
+    // Cop// Copyright (c) 2021 Beijing Xiaomi Mobile Software Co., Ltd. All rights reserved.
     //
     // Licensed under the Apache License, Version 2.0 (the "License");
     // you may not use this file except in compliance with the License.
