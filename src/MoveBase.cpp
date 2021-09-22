@@ -623,8 +623,15 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State &
 nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State & state)
 {
   RCLCPP_INFO(get_logger(), "Activating");
+  if(controller_costmap_ros_->on_activate(state) != nav2_util::CallbackReturn::SUCCESS){
+    RCLCPP_ERROR(get_logger(), "local_costmap lc activate failed");
+    return nav2_util::CallbackReturn::FAILURE;
+  };
 
-  global_costmap_ros_->on_activate(state);
+  if(global_costmap_ros_->on_activate(state) != nav2_util::CallbackReturn::SUCCESS) {
+    RCLCPP_ERROR(get_logger(), "global_costmap lc activate failed");
+    return nav2_util::CallbackReturn::FAILURE;
+  };
   plan_publisher_->on_activate();
 
   PlannerMap::iterator it;
@@ -632,7 +639,6 @@ nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State & 
     it->second->activate();
   }
 
-  controller_costmap_ros_->on_activate(state);
   ControllerMap::iterator c_it;
   for (c_it = controllers_.begin(); c_it != controllers_.end(); ++c_it) {
     c_it->second->activate();
