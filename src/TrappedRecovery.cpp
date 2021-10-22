@@ -30,6 +30,7 @@ TrappedRecovery::TrappedRecovery()
 
 TrappedRecovery::~TrappedRecovery()
 {
+  traj_publisher_->reset();
 }
 
 void TrappedRecovery::initialize(
@@ -76,6 +77,28 @@ void TrappedRecovery::initialize(
   ultrasonic_sub_ = node_->create_subscription<ception_msgs::msg::Around>(
     "ObstacleDetection", rclcpp::SystemDefaultsQoS(),
     std::bind(&TrappedRecovery::ultrasonicCallback, this, std::placeholders::_1));
+  
+  nav2_util::declare_parameter_if_not_declared(
+    node_, "dist_throttle", rclcpp::ParameterValue(0.3));
+  double dist_throttle {0.0};
+  node_->get_parameter("dist_throttle", dist_throttle);
+  dist_sq_throttle_ = dist_throttle * dist_throttle;
+
+  nav2_util::declare_parameter_if_not_declared(
+    node_, "max_effective_dist", rclcpp::ParameterValue(3.0));
+  node_->get_parameter("max_effective_dist", max_effective_dist_);
+
+  nav2_util::declare_parameter_if_not_declared(
+    node_, "period_of_pose_validity", rclcpp::ParameterValue(600));
+  node_->get_parameter("period_of_pose_validity", period_of_pose_validity_);
+  
+
+
+  historical_traj_.clear();
+  traj_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseArray>("backup_traj", 1);
+  timer_ = node_->create_wall_timer(500ms, std::bind(&TrappedRecovery::timerForPoseRecorderCallback, this));
+
+  traj_publisher_->on_activate();
 }
 
 void TrappedRecovery::setMode(int i)
@@ -578,4 +601,82 @@ bool TrappedRecovery::isUltrasonicCurrent()
 
   return true;
 }
+
+double poseDistanceSq(const geometry_msgs::msg::Pose &p1, const geometry_msgs::msg::Pose &p2){
+  double dx = p2.position.x - p1.position.x;
+  double dy = p2.position.y - p1.position.y;
+  return dx * dx + dy * dy;
+}
+
+double trajLength(const std::deque<geometry_msgs::msg::PoseStamped> &traj){
+  double length = 0.0;
+  for (unsigned int i = 1; i < traj.size(); i++)
+  {
+    length += hypot(traj[i-1].pose.position.x - traj[i].pose.position.x,
+                    traj[i-1].pose.position.y - traj[i].pose.position.y);
+  }
+  return length;
+}
+
+
+
+void TrappedRecovery::publishTraj(const std::deque<geometry_msgs::msg::PoseStamped>& traj){
+
+  geometry_msgs::msg::PoseArray pose_array = geometry_msgs::msg::PoseArray();
+
+  if(traj.size() == 0)
+    return;
+
+  pose_array.header = traj[0].header;
+  for(size_t i = 0; i < traj.size(); i++){
+    pose_array.poses.push_back(traj[i].pose);
+  }
+
+  traj_publisher_->publish(pose_array);
+}
+
+void TrappedRecovery::timerForPoseRecorderCallback()
+{
+  geometry_msgs::msg::PoseStamped pose_based_on_map;
+  if (!controller_costmap_->getRobotPose(pose_based_on_map)) {
+      RCLCPP_WARN(logger_, "odom pose recorder failed to obtain current pose based on map coordinate system.");
+      return;
+  }
+  geometry_msgs::msg::PoseStamped pose_based_on_odom;
+  if(!transformPose("odom", pose_based_on_map, pose_based_on_odom)){
+      RCLCPP_WARN(logger_, "odom pose recorder failed to transform pose based on map to Odom.");
+      return;
+  }
+
+  //deque front pose is the robot's latest pose.
+  if(historical_traj_.empty()){
+    historical_traj_.push_front(std::move(pose_based_on_odom));
+    return;
+  }
+
+  //push pose when robot has moved a little.
+  const geometry_msgs::msg::PoseStamped &lastest_odom_pose = historical_traj_.front();
+  if(poseDistanceSq(lastest_odom_pose.pose, pose_based_on_odom.pose) < dist_sq_throttle_){
+    return;
+  }else{
+    historical_traj_.push_front(pose_based_on_odom);
+  }
+
+  //truncat older poses to prevent data from drifting
+  while (period_of_pose_validity_ <
+        pose_based_on_odom.header.stamp.sec - historical_traj_.back().header.stamp.sec)
+  {
+    historical_traj_.pop_back();
+  }
+ 
+  //truncat redundant poses when the totle length is overflow.
+  while(trajLength(historical_traj_) > max_effective_dist_){
+    historical_traj_.pop_back();
+  }
+
+  publishTraj(historical_traj_);
+}
+
 }  // namespace move_base
+
+
