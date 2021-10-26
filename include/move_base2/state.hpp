@@ -14,6 +14,9 @@
 #ifndef MOVE_BASE2__STATE_HPP_
 #define MOVE_BASE2__STATE_HPP_
 
+#include <string>
+#include <vector>
+
 enum NavState
 {
   UNACTIVE = 0,
@@ -24,6 +27,8 @@ enum NavState
   TRACKINGROTATERECOVERY,
   EXCEPTION,
   STOPPING,
+  SPINRECOVERY,
+  BACKUPRECOVERY
 };
 
 enum NavMode
@@ -31,6 +36,37 @@ enum NavMode
   NavMode_AB = 0,
   NavMode_Track,
   NavMode_STOP,
+};
+
+
+class RecoveryRecord
+{
+public:
+  RecoveryRecord()
+  : cnt_(0) {}
+
+  ~RecoveryRecord()
+  {
+    clear();
+  }
+
+  void clear()
+  {
+    cnt_ = 0;
+    index_.clear();
+    name_.clear();
+  }
+
+  void update(const std::string & way)
+  {
+    cnt_++;
+    index_.push_back(cnt_);
+    name_.push_back(way);
+  }
+
+  int cnt_;
+  std::vector<int> index_;
+  std::vector<std::string> name_;
 };
 
 #endif  // MOVE_BASE2__STATE_HPP_

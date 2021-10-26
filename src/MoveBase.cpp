@@ -63,6 +63,8 @@ MoveBase::MoveBase()
 {
   // setup planner+global_costmap
   failed_control_cnt_ = 0;
+  planner_patience_ = 10;
+
   RCLCPP_INFO(get_logger(), "Creating Planner");
   declare_parameter("navi_mode", "NavMode_AB");  // default
 
@@ -204,26 +206,47 @@ void MoveBase::loop()
                 automation_msgs::msg::NavStatus::FAILED_NOPATH,
                 "no_valid_path_exit_navigation");
             }
-          } else if (navi_mode_ == NavMode::NavMode_AB && time_used > 120.0) {
-            RCLCPP_WARN(
-              get_logger(), "mode %d, planning, planner timeout %f, reset status",
-              static_cast<int>(navi_mode_), time_used);
-            std::unique_lock<std::mutex> lock(planner_mutex_);
-            resetState();
-            lock.unlock();
-            publishZeroVelocity();
+          } else if (navi_mode_ == NavMode::NavMode_AB) {
 
-            if (trapped_recovery_->isTrapped()) {
-              reporter_->report(
-                static_cast<int>(navi_mode_),
-                automation_msgs::msg::NavStatus::FAILED_TRAPPED,
-                "no_valid_plan_robot_base_trapped");
+            double recovery_timediff = t.seconds() - last_recovery_time_.seconds();
+            bool is_trapped = trapped_recovery_->isTrapped();
+            int recovery_cnt = recoverys_.cnt_;
+
+            if (time_used > 120.0) {  // out of time
+              RCLCPP_WARN(
+                get_logger(), "mode %d, planning, planner timeout %f, reset status",
+                static_cast<int>(navi_mode_), time_used);
+              std::unique_lock<std::mutex> lock(planner_mutex_);
+              resetState();
+              lock.unlock();
+              publishZeroVelocity();
+
+              if (is_trapped) {
+                reporter_->report(
+                  static_cast<int>(navi_mode_),
+                  automation_msgs::msg::NavStatus::FAILED_TRAPPED,
+                  "no_valid_plan_robot_base_trapped");
+              } else {
+                reporter_->report(
+                  static_cast<int>(navi_mode_),
+                  automation_msgs::msg::NavStatus::FAILED_NOPATH,
+                  "no_valid_path_exit_navigation");
+              }
+            } else if (recovery_timediff > planner_patience_ && recovery_cnt == 0) {
+              // 1. first goto backup recovery
+              state_ = NavState::BACKUPRECOVERY;
+              recoverys_.update("backup");
+
+            } else if (recovery_timediff > planner_patience_ && recovery_cnt > 0) {
+              // goto spin recovery
+              state_ = NavState::SPINRECOVERY;
+              recoverys_.update("spin");
             } else {
-              reporter_->report(
-                static_cast<int>(navi_mode_),
-                automation_msgs::msg::NavStatus::FAILED_NOPATH,
-                "no_valid_path_exit_navigation");
+              RCLCPP_INFO(
+                get_logger(), "what？？ plan_timeout %f, recovery timeout %f", time_used,
+                recovery_timediff);
             }
+
           }
           std::this_thread::sleep_for(std::chrono::milliseconds(200));  // wait a little
         }
@@ -254,7 +277,7 @@ void MoveBase::loop()
 
       case WAITING: {
           publishZeroVelocity();
-          std::this_thread::sleep_for(std::chrono::milliseconds(500));
+          std::this_thread::sleep_for(std::chrono::milliseconds(1000));
           std::unique_lock<std::mutex> lock(planner_mutex_);
           state_ = NavState::PLANNING;
           last_valid_plan_time_ = now();
@@ -404,6 +427,67 @@ void MoveBase::loop()
       case EXCEPTION: {
         }
         break;
+
+      case SPINRECOVERY: {
+          geometry_msgs::msg::PoseStamped current_pose, left_pose, right_pose;
+
+          if (getRobotPose(current_pose)) {
+
+            double yaw = tf2::getYaw(current_pose.pose.orientation);
+
+            double left_yaw = angles::normalize_angle(yaw + 1.01);   // 60 °
+            double right_yaw = angles::normalize_angle(yaw - 1.01);
+
+            tf2::Quaternion q;
+            q.setRPY(0, 0, left_yaw);
+            left_pose.pose.orientation = tf2::toMsg(q);               // left target
+
+            q.setRPY(0, 0, right_yaw);
+            right_pose.pose.orientation = tf2::toMsg(q);              // right target
+
+            int i = 0; // left
+            while (!base_controller_->approachOnlyRotate(left_pose) && i++ < 30) {
+              continue;
+            }
+
+            publishZeroVelocity();
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+            i = 0; // right
+            while (!base_controller_->approachOnlyRotate(right_pose) && i++ < 30) {
+              continue;
+            }
+            publishZeroVelocity();
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+            i = 0; // middle
+            while (!base_controller_->approachOnlyRotate(current_pose) && i++ < 30) {
+              continue;
+            }
+            publishZeroVelocity();
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+          } else {
+            RCLCPP_WARN(get_logger(), "SPINRECOVERY failed to get current pose, just wait");
+            std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+          }
+
+          last_recovery_time_ = now();
+          state_ = NavState::PLANNING;
+        } break;
+
+      case BACKUPRECOVERY: {
+
+          RCLCPP_INFO(get_logger(), "BACKUPRECOVERY");
+          int i = 0;
+          while (i++ < 30) {
+            geometry_msgs::msg::TwistStamped twist;
+            twist.twist.linear.x = -0.1;
+            publishVelocity(twist);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          }
+          last_recovery_time_ = now();
+          state_ = NavState::PLANNING;
+        } break;
 
       default:
         break;
@@ -623,15 +707,15 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State &
 nav2_util::CallbackReturn MoveBase::on_activate(const rclcpp_lifecycle::State & state)
 {
   RCLCPP_INFO(get_logger(), "Activating");
-  if(controller_costmap_ros_->on_activate(state) != nav2_util::CallbackReturn::SUCCESS){
+  if (controller_costmap_ros_->on_activate(state) != nav2_util::CallbackReturn::SUCCESS) {
     RCLCPP_ERROR(get_logger(), "local_costmap lc activate failed");
     return nav2_util::CallbackReturn::FAILURE;
-  };
+  }
 
-  if(global_costmap_ros_->on_activate(state) != nav2_util::CallbackReturn::SUCCESS) {
+  if (global_costmap_ros_->on_activate(state) != nav2_util::CallbackReturn::SUCCESS) {
     RCLCPP_ERROR(get_logger(), "global_costmap lc activate failed");
     return nav2_util::CallbackReturn::FAILURE;
-  };
+  }
   plan_publisher_->on_activate();
 
   PlannerMap::iterator it;
@@ -804,6 +888,7 @@ void MoveBase::handleService(
   }
 
   last_valid_plan_time_ = now();
+  last_recovery_time_ = now();
   last_valid_control_time_ = now();
 
   // idle status
@@ -833,6 +918,8 @@ void MoveBase::handleService(
   last_nofity_plan_time_ = now();
   run_planner_ = true;
   planner_cond_.notify_one();  // before cv.notify(), run_planner_ must be true
+
+  recoverys_.clear();
 
   response->result = automation_msgs::srv::NavigateToPose::Response::SUCCESS;
   response->description = "request received";
@@ -1037,15 +1124,18 @@ void MoveBase::computeControl()
     publishZeroVelocity();
 
     if (failed_control_cnt_ > 15 && trapped_recovery_->isTrapped()) {
-      reporter_->report(
-        static_cast<int>(navi_mode_),
-        automation_msgs::msg::NavStatus::FAILED_TRAPPED,
-        "no_valid_control_robot_base_trapped");
+
+      // reporter_->report(
+      //   static_cast<int>(navi_mode_),
+      //   automation_msgs::msg::NavStatus::FAILED_TRAPPED,
+      //   "no_valid_control_robot_base_trapped");
       // reporter_->report(static_cast<int>(navi_mode_),
       // automation_msgs::msg::NavStatus::FAILED_NOPATH, "no_valid_path_exit_navigation");
-      std::unique_lock<std::mutex> lock(planner_mutex_);
-      resetState();
-      lock.unlock();
+      // std::unique_lock<std::mutex> lock(planner_mutex_);
+      // resetState();
+      // lock.unlock();
+
+      state_ = NavState::BACKUPRECOVERY;  // 局部陷入障碍物，后退一下
     } else {
       state_ = NavState::WAITING;
     }
@@ -1275,6 +1365,7 @@ void MoveBase::resetState()
   last_nofity_plan_time_ = now();
   last_valid_plan_time_ = now();
   last_valid_control_time_ = now();
+  last_recovery_time_ = now();
   run_planner_ = false;
 
   current_request_.planner_id.clear();
@@ -1288,6 +1379,8 @@ void MoveBase::resetState()
 
   state_ = NavState::READY;
   is_cancel_ = false;
+
+  recoverys_.clear();
 }
 
 void MoveBase::getModeCallback(

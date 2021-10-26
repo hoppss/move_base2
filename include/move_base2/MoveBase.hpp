@@ -196,6 +196,8 @@ protected:
   rclcpp::Time last_valid_plan_time_;
   std::atomic_bool new_global_plan_;
   int failed_control_cnt_;
+  rclcpp::Time last_recovery_time_;
+  double planner_patience_;
 
   void planThread();
   std::shared_ptr<std::thread> plan_thread_;
@@ -300,6 +302,9 @@ private:
 
   // status_reporter
   std::shared_ptr<Reporter> reporter_;
+
+  // recovery
+  RecoveryRecord  recoverys_;
 };
 
 }  // namespace move_base
