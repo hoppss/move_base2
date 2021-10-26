@@ -32,6 +32,7 @@
 #include "motion_msgs/msg/frameid.hpp"
 #include "motion_msgs/msg/se3_velocity_cmd.hpp"
 #include "move_base2/TrappedRecovery.hpp"
+#include "std_srvs/srv/trigger.hpp"
 namespace move_base
 {
 class BaseController
@@ -58,6 +59,7 @@ public:
     geometry_msgs::msg::PoseStamped & out_pose);
 
   bool approachOnlyRotate(const geometry_msgs::msg::PoseStamped & target);
+  bool approachBackUp(const double dist, const double max_duration);
 
   // only in-place interpolate, interpolate its yaw-angle in odom frame
   bool interpolateToTarget(
@@ -67,6 +69,11 @@ public:
 
   void publishVelocity(const geometry_msgs::msg::Twist & command);
 
+protected:
+  void testBackup(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+                  std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+  double dist_threshold_;
+  double theta_threshold_;
 private:
   std::string name_;
   rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
@@ -77,6 +84,8 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
   rclcpp_lifecycle::LifecyclePublisher<motion_msgs::msg::SE3VelocityCMD>::SharedPtr body_cmd_pub_;
   std::shared_ptr<move_base::TrappedRecovery> trapped_;
+
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr backup_service_;
 };
 
 }  // namespace move_base

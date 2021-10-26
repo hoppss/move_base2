@@ -30,7 +30,7 @@ TrappedRecovery::TrappedRecovery()
 
 TrappedRecovery::~TrappedRecovery()
 {
-  traj_publisher_->reset();
+  traj_publisher_.reset();
 }
 
 void TrappedRecovery::initialize(
@@ -79,10 +79,14 @@ void TrappedRecovery::initialize(
     std::bind(&TrappedRecovery::ultrasonicCallback, this, std::placeholders::_1));
   
   nav2_util::declare_parameter_if_not_declared(
-    node_, "dist_throttle", rclcpp::ParameterValue(0.3));
+    node_, "dist_throttle", rclcpp::ParameterValue(0.1));
   double dist_throttle {0.0};
   node_->get_parameter("dist_throttle", dist_throttle);
   dist_sq_throttle_ = dist_throttle * dist_throttle;
+
+  nav2_util::declare_parameter_if_not_declared(
+    node_, "theta_throttle", rclcpp::ParameterValue(0.2));
+  node_->get_parameter("theta_throttle", theta_throttle_);
 
   nav2_util::declare_parameter_if_not_declared(
     node_, "max_effective_dist", rclcpp::ParameterValue(3.0));
@@ -96,7 +100,7 @@ void TrappedRecovery::initialize(
 
   historical_traj_.clear();
   traj_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseArray>("backup_traj", 1);
-  timer_ = node_->create_wall_timer(500ms, std::bind(&TrappedRecovery::timerForPoseRecorderCallback, this));
+  timer_ = node_->create_wall_timer(250ms, std::bind(&TrappedRecovery::timerForPoseRecorderCallback, this));
 
   traj_publisher_->on_activate();
 }
@@ -619,6 +623,37 @@ double trajLength(const std::deque<geometry_msgs::msg::PoseStamped> &traj){
 }
 
 
+ void TrappedRecovery::truncatTrajFrontPoses(){
+  geometry_msgs::msg::PoseStamped pose_based_on_map;
+  if (!controller_costmap_->getRobotPose(pose_based_on_map)) {
+      RCLCPP_WARN(logger_, "truncat traj front poses failed to obtain current pose based on map coordinate system.");
+      return;
+  }
+  geometry_msgs::msg::PoseStamped pose_based_on_odom;
+  if(!transformPose("odom", pose_based_on_map, pose_based_on_odom)){
+      RCLCPP_WARN(logger_, "truncat traj front poses failed to transform pose based on map to Odom.");
+      return;
+  }
+  size_t origin_size = historical_traj_.size();
+
+  while (historical_traj_.size() > 1)
+  {
+    double l0 = hypot(pose_based_on_odom.pose.position.x - historical_traj_[0].pose.position.x, 
+                      pose_based_on_odom.pose.position.y - historical_traj_[0].pose.position.y);
+    double l1 = hypot(pose_based_on_odom.pose.position.x - historical_traj_[1].pose.position.x, 
+                      pose_based_on_odom.pose.position.y - historical_traj_[1].pose.position.y);
+    if(l0 >= l1){
+      historical_traj_.pop_front();
+    }else{
+      historical_traj_.pop_front();
+      RCLCPP_INFO(logger_, "has poped %d front poses from traj history.", origin_size - historical_traj_.size());
+      break;
+    }
+  }
+  // forcibly change the timestamp for normal display.
+  historical_traj_[0].header.stamp = clock_->now();
+  publishTraj(historical_traj_);
+ }
 
 void TrappedRecovery::publishTraj(const std::deque<geometry_msgs::msg::PoseStamped>& traj){
 
@@ -655,8 +690,10 @@ void TrappedRecovery::timerForPoseRecorderCallback()
   }
 
   //push pose when robot has moved a little.
-  const geometry_msgs::msg::PoseStamped &lastest_odom_pose = historical_traj_.front();
-  if(poseDistanceSq(lastest_odom_pose.pose, pose_based_on_odom.pose) < dist_sq_throttle_){
+  const geometry_msgs::msg::PoseStamped &latest_odom_pose = historical_traj_.front();
+  if(poseDistanceSq(latest_odom_pose.pose, pose_based_on_odom.pose) < dist_sq_throttle_ &&             
+     angles::shortest_angular_distance(tf2::getYaw(latest_odom_pose.pose.orientation), 
+                                       tf2::getYaw(pose_based_on_odom.pose.orientation)) < theta_throttle_){
     return;
   }else{
     historical_traj_.push_front(pose_based_on_odom);

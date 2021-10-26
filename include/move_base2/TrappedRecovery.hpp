@@ -97,8 +97,18 @@ public:
   // ultrasonic, false is collision
   bool collisionFreeCheck(const nav_msgs::msg::Path & path, double & sum_dist);
   bool ultrasonicFrontFree();
+  //start to record poses after back up recovery
+  void recorder_start(){timer_->reset();}
+  //stop to record poses before back up recovery
+  void recorder_stop(){timer_->cancel();}
+  std::vector<geometry_msgs::msg::PoseStamped> getTrajPoses(){
+    return std::move(std::vector<geometry_msgs::msg::PoseStamped>(
+                      std::vector<geometry_msgs::msg::PoseStamped>{
+                        historical_traj_.begin(), historical_traj_.end()}));}
+ void truncatTrajFrontPoses();
 protected:
   double dist_sq_throttle_;
+  double theta_throttle_;
   double max_effective_dist_;
   int period_of_pose_validity_;
 
@@ -108,8 +118,6 @@ protected:
   rclcpp_lifecycle::LifecyclePublisher <geometry_msgs::msg::PoseArray>::SharedPtr traj_publisher_;
   void timerForPoseRecorderCallback();
   void publishTraj(const std::deque<geometry_msgs::msg::PoseStamped>& traj);
-  void recorder_start(){timer_->reset();}
-  void recorder_stop(){timer_->cancel();}
 private:
   int mode_;
   std::string global_frame_;

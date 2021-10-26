@@ -70,6 +70,7 @@ set(dependencies
   nav_2d_utils
   geometry_msgs
   sensor_msgs
+  std_srvs
   builtin_interfaces
   tf2
   tf2_ros
