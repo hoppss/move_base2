@@ -15,6 +15,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <ctime>
 #include "move_base2/BaseController.hpp"
 
 namespace move_base
@@ -32,6 +33,7 @@ BaseController::~BaseController()
 {
 }
 
+
 void BaseController::initialize(
   const rclcpp_lifecycle::LifecycleNode::SharedPtr & parent,
   const std::shared_ptr<tf2_ros::Buffer> & tf,
@@ -48,6 +50,17 @@ void BaseController::initialize(
   vel_pub_ = vel_publisher;
   body_cmd_pub_ = body_cmd_publisher;
   trapped_ = trapped_ptr;
+
+  nav2_util::declare_parameter_if_not_declared(
+    node_, "dist_threshold", rclcpp::ParameterValue(0.1));
+  node_->get_parameter("dist_threshold", dist_threshold_);
+  nav2_util::declare_parameter_if_not_declared(
+    node_, "theta_threshold", rclcpp::ParameterValue(0.1));
+  node_->get_parameter("theta_threshold", theta_threshold_);
+
+  backup_service_ = node_->create_service<std_srvs::srv::Trigger>("test_backup", 
+                    std::bind(&BaseController::testBackup, this, std::placeholders::_1, std::placeholders::_2));
+
 }
 
 bool BaseController::transformPose(
@@ -170,6 +183,79 @@ bool BaseController::approachOnlyRotate(const geometry_msgs::msg::PoseStamped & 
 
   publishVelocity(command);  // zero if error occurs
   return false;
+}
+
+void BaseController::testBackup(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+          std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  auto r = request;
+  response = response;
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "sending back up command");
+  approachBackUp(0.5, 10.0);
+}
+
+bool BaseController::approachBackUp(const double dist, const double max_duration)
+{
+  bool result = true;
+  //close the traj recorder while recovering. and check for traj's validation.
+  trapped_->recorder_stop();
+  std::vector<geometry_msgs::msg::PoseStamped>&& traj = trapped_->getTrajPoses();
+
+  size_t k = 1;
+  double length = 0.0;
+  while (k < traj.size() && length < dist)
+  {
+    length += hypot(traj[k-1].pose.position.x - traj[k].pose.position.x,
+                    traj[k-1].pose.position.y - traj[k].pose.position.y);
+    k += 1;
+  }
+  
+  geometry_msgs::msg::Twist twist;
+  if(length < dist){
+    RCLCPP_WARN(logger_, "there is no enough poses in traj historical container to support robot's back up recovery.");
+    result = false;
+  }else{
+    //obtain the total poses for back up recovery, truncat the origin traj in trapped recovery.
+    traj.resize(k);
+    geometry_msgs::msg::PoseStamped target = traj.back(), odom_pose;
+    double target_yaw = tf2::getYaw(target.pose.orientation);
+
+    time_t start_time, current_time;
+    time(&start_time);time(&current_time);
+
+    while(true && difftime(current_time, start_time) < max_duration){
+      
+      if(!getCurrentPose(odom_pose)){
+        RCLCPP_WARN(logger_, "failed to get pose on odom frame during backup recovery.");
+        result = false;
+      }
+
+      // calcute the back up speed here.
+      twist.linear.x = -0.1;
+
+      // judgement of arrival target.
+      double det_s = hypot(odom_pose.pose.position.x - target.pose.position.x,
+                           odom_pose.pose.position.y - target.pose.position.y);
+      double current_yaw = tf2::getYaw(odom_pose.pose.orientation);                     
+      double det_t = angles::shortest_angular_distance(current_yaw, target_yaw);
+      
+      if(det_s < dist_threshold_ && det_t < theta_threshold_){
+        break;
+      }
+
+      publishVelocity(twist);
+      time(&current_time);
+    }
+  }
+
+  twist.linear.x = twist.linear.y = twist.linear.z = 0.0;
+  twist.angular.x = twist.angular.y = twist.angular.z = 0.0;
+  publishVelocity(twist);
+  
+  trapped_->truncatTrajFrontPoses();
+
+  trapped_->recorder_start();
+  return result;
 }
 
 bool BaseController::interpolateToTarget(

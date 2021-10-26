@@ -19,12 +19,16 @@
 #include <memory>
 #include <map>
 #include <vector>
+#include <chrono>
+#include <deque>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/timer.hpp"
 #include "nav2_util/lifecycle_node.hpp"
-
+#include "nav2_util/node_utils.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/pose_array.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
@@ -39,6 +43,7 @@
 #include "angles/angles.h"
 
 #include "eigen3/Eigen/Eigen"
+using namespace std::literals::chrono_literals;
 
 namespace move_base
 {
@@ -92,7 +97,27 @@ public:
   // ultrasonic, false is collision
   bool collisionFreeCheck(const nav_msgs::msg::Path & path, double & sum_dist);
   bool ultrasonicFrontFree();
+  //start to record poses after back up recovery
+  void recorder_start(){timer_->reset();}
+  //stop to record poses before back up recovery
+  void recorder_stop(){timer_->cancel();}
+  std::vector<geometry_msgs::msg::PoseStamped> getTrajPoses(){
+    return std::move(std::vector<geometry_msgs::msg::PoseStamped>(
+                      std::vector<geometry_msgs::msg::PoseStamped>{
+                        historical_traj_.begin(), historical_traj_.end()}));}
+ void truncatTrajFrontPoses();
+protected:
+  double dist_sq_throttle_;
+  double theta_throttle_;
+  double max_effective_dist_;
+  int period_of_pose_validity_;
 
+  rclcpp::TimerBase::SharedPtr timer_;
+  std::deque<geometry_msgs::msg::PoseStamped> historical_traj_;
+
+  rclcpp_lifecycle::LifecyclePublisher <geometry_msgs::msg::PoseArray>::SharedPtr traj_publisher_;
+  void timerForPoseRecorderCallback();
+  void publishTraj(const std::deque<geometry_msgs::msg::PoseStamped>& traj);
 private:
   int mode_;
   std::string global_frame_;
