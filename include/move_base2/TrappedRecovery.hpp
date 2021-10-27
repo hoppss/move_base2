@@ -101,11 +101,9 @@ public:
   void recorder_start(){timer_->reset();}
   //stop to record poses before back up recovery
   void recorder_stop(){timer_->cancel();}
-  std::vector<geometry_msgs::msg::PoseStamped> getTrajPoses(){
-    return std::move(std::vector<geometry_msgs::msg::PoseStamped>(
-                      std::vector<geometry_msgs::msg::PoseStamped>{
-                        historical_traj_.begin(), historical_traj_.end()}));}
- void truncatTrajFrontPoses();
+  std::deque<geometry_msgs::msg::PoseStamped> getTrajPoses()
+  {return std::move(std::deque<geometry_msgs::msg::PoseStamped>(historical_traj_.begin(), historical_traj_.end()));}
+  void truncatTrajFrontPoses();
 protected:
   double dist_sq_throttle_;
   double theta_throttle_;

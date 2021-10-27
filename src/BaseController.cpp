@@ -21,6 +21,7 @@
 namespace move_base
 {
 static const double degree45 = 0.7854;
+static const double degree20 = 0.349;
 static const double degree10 = 0.1745;
 static const double degree5 = 0.0872;
 
@@ -199,7 +200,7 @@ bool BaseController::approachBackUp(const double dist, const double max_duration
   bool result = true;
   //close the traj recorder while recovering. and check for traj's validation.
   trapped_->recorder_stop();
-  std::vector<geometry_msgs::msg::PoseStamped>&& traj = trapped_->getTrajPoses();
+  std::deque<geometry_msgs::msg::PoseStamped>&& traj = trapped_->getTrajPoses();
 
   size_t k = 1;
   double length = 0.0;
@@ -211,6 +212,8 @@ bool BaseController::approachBackUp(const double dist, const double max_duration
   }
   
   geometry_msgs::msg::Twist twist;
+  twist.linear.x = twist.linear.y = twist.linear.z = 0.0;
+  twist.angular.x = twist.angular.y = twist.angular.z = 0.0;
   if(length < dist){
     RCLCPP_WARN(logger_, "there is no enough poses in traj historical container to support robot's back up recovery.");
     result = false;
@@ -219,6 +222,7 @@ bool BaseController::approachBackUp(const double dist, const double max_duration
     traj.resize(k);
     geometry_msgs::msg::PoseStamped target = traj.back(), odom_pose;
     double target_yaw = tf2::getYaw(target.pose.orientation);
+    double det_x = 0.0, det_y = 0.0, det_t = 0.0, det_s = 0.0;
 
     time_t start_time, current_time;
     time(&start_time);time(&current_time);
@@ -229,15 +233,28 @@ bool BaseController::approachBackUp(const double dist, const double max_duration
         RCLCPP_WARN(logger_, "failed to get pose on odom frame during backup recovery.");
         result = false;
       }
-
+      double current_yaw = tf2::getYaw(odom_pose.pose.orientation);                     
       // calcute the back up speed here.
-      twist.linear.x = -0.1;
+      while(angles::shortest_angular_distance(tf2::getYaw(traj[0].pose.orientation), current_yaw) < degree20 &&
+            hypot(odom_pose.pose.position.x - traj[0].pose.position.x, 
+                  odom_pose.pose.position.y - traj[0].pose.position.y) < 0.1){
+        traj.pop_front();
+      }
+
+      det_x = traj[0].pose.position.x - odom_pose.pose.position.x;
+      det_y = traj[0].pose.position.y - odom_pose.pose.position.y;
+      double rho = hypot(det_x, det_y);
+
+      det_t = angles::normalize_angle(current_yaw - tf2::getYaw(traj[0].pose.orientation));
+      twist.angular.z = std::copysign(std::min(abs(det_t), 0.3), det_t) * -1;
+      if(abs(det_t) < degree10){
+        twist.linear.x = std::min(abs(rho), 0.2) * -1.0;
+      }
 
       // judgement of arrival target.
-      double det_s = hypot(odom_pose.pose.position.x - target.pose.position.x,
+      det_s = hypot(odom_pose.pose.position.x - target.pose.position.x,
                            odom_pose.pose.position.y - target.pose.position.y);
-      double current_yaw = tf2::getYaw(odom_pose.pose.orientation);                     
-      double det_t = angles::shortest_angular_distance(current_yaw, target_yaw);
+      det_t = angles::shortest_angular_distance(current_yaw, target_yaw);
       
       if(det_s < dist_threshold_ && det_t < theta_threshold_){
         break;
