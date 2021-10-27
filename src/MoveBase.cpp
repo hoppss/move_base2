@@ -469,6 +469,7 @@ void MoveBase::loop()
           geometry_msgs::msg::PoseStamped current_pose, left_pose, right_pose;
 
           if (getRobotPose(current_pose)) {
+            left_pose = right_pose = current_pose;
 
             double yaw = tf2::getYaw(current_pose.pose.orientation);
 

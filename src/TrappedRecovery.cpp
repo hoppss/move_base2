@@ -343,10 +343,6 @@ double TrappedRecovery::scoreFootprint(std::vector<geometry_msgs::msg::Point> or
     line_cost = lineCost(x0, x1, y0, y1);
 
     if (line_cost == -1) {
-      double w_x0, w_y0, w_x1, w_y1;
-      controller_costmap_->getCostmap()->mapToWorld(x0, y0, w_x0, w_y0);
-      controller_costmap_->getCostmap()->mapToWorld(x1, y1, w_x1, w_y1);
-      RCLCPP_ERROR(logger_, "illegal (%f, %f) (%f, %f)", w_x0, w_y0, w_x1, w_y1);
       return line_cost;  // -1 for LETHAL_OBSTACLE
     }
     footprint_cost = std::max(line_cost, footprint_cost);
