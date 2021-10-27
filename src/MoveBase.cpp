@@ -232,18 +232,55 @@ void MoveBase::loop()
                   automation_msgs::msg::NavStatus::FAILED_NOPATH,
                   "no_valid_path_exit_navigation");
               }
-            } else if (recovery_timediff > planner_patience_ && recovery_cnt == 0) {
-              // 1. first goto backup recovery
-              state_ = NavState::BACKUPRECOVERY;
-              recoverys_.update("backup");
+            } else if (recovery_timediff > planner_patience_ && is_trapped) {
+              RCLCPP_INFO(
+                get_logger(), "goto backup recovery, cnt %d, trapped %d", recovery_cnt,
+                static_cast<int>(is_trapped));
+              // 1. first goto backup/front recovery
+              bool had_forward = true;
+              bool had_backup = true;
+              auto it0 = std::find(recoverys_.name_.begin(), recoverys_.name_.end(), "forward");
+              if (it0 == recoverys_.name_.end()) {had_forward = false;}
 
-            } else if (recovery_timediff > planner_patience_ && recovery_cnt > 0) {
+              auto it1 = std::find(recoverys_.name_.begin(), recoverys_.name_.end(), "backup");
+              if (it1 == recoverys_.name_.end()) {had_backup = false;}
+
+              RCLCPP_INFO(
+                get_logger(), "goto backup recovery, cnt %d, trapped %d, forward %d, backward %d", recovery_cnt,
+                static_cast<int>(is_trapped), static_cast<int>(had_forward), static_cast<int>(had_backup));
+
+              if (trapped_recovery_->isUltrasonicCurrent() &&
+                trapped_recovery_->getCurrentUltrasonicRange() > 1.1 && !had_forward)
+              {
+                state_ = NavState::FORWARDRECOVERY;
+                recoverys_.update("forward");
+              } else if (!had_backup) {
+                state_ = NavState::BACKUPRECOVERY;
+                recoverys_.update("backup");
+              } else {
+                RCLCPP_INFO(
+                  get_logger(),
+                  "recovery failed, trapped in obstacle after forward and backup, cancel task");
+                std::unique_lock<std::mutex> lock(planner_mutex_);
+                resetState();
+                lock.unlock();
+                publishZeroVelocity();
+                reporter_->report(
+                  static_cast<int>(navi_mode_), automation_msgs::msg::NavStatus::FAILED_TRAPPED,
+                  "no_valid_plan_robot_base_trapped");
+              }
+
+
+            } else if (recovery_timediff > planner_patience_) {
               // goto spin recovery
+              RCLCPP_INFO(
+                get_logger(), "goto backup recovery, cnt %d, trapped %f", recovery_cnt,
+                static_cast<int>(is_trapped));
               state_ = NavState::SPINRECOVERY;
               recoverys_.update("spin");
             } else {
               RCLCPP_INFO(
-                get_logger(), "what？？ plan_timeout %f, recovery timeout %f", time_used,
+                get_logger(), "== plan_timeout %f, recovery timeout %f", time_used,
                 recovery_timediff);
             }
 
@@ -482,6 +519,20 @@ void MoveBase::loop()
           while (i++ < 30) {
             geometry_msgs::msg::TwistStamped twist;
             twist.twist.linear.x = -0.1;
+            publishVelocity(twist);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          }
+          last_recovery_time_ = now();
+          state_ = NavState::PLANNING;
+        } break;
+
+      case FORWARDRECOVERY: {
+
+        RCLCPP_INFO(get_logger(), "BACKUPRECOVERY");
+          int i = 0;
+          while (i++ < 80 && trapped_recovery_->getCurrentUltrasonicRange() > 0.3) {
+            geometry_msgs::msg::TwistStamped twist;
+            twist.twist.linear.x = 0.1;
             publishVelocity(twist);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
           }
@@ -1338,6 +1389,10 @@ void MoveBase::planThread()
       last_valid_plan_time_ = now();
       new_global_plan_ = true;
       last_report_time = now().seconds();
+
+      // recovery relatives
+      last_recovery_time_ = now();
+      recoverys_.clear();
 
       if (state_ == NavState::PLANNING || state_ == NavState::TRACKINGROTATERECOVERY) {
         state_ = NavState::CONTROLLING;

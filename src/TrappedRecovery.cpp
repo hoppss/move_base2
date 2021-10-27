@@ -77,7 +77,7 @@ void TrappedRecovery::initialize(
   ultrasonic_sub_ = node_->create_subscription<ception_msgs::msg::Around>(
     "ObstacleDetection", rclcpp::SystemDefaultsQoS(),
     std::bind(&TrappedRecovery::ultrasonicCallback, this, std::placeholders::_1));
-  
+
   nav2_util::declare_parameter_if_not_declared(
     node_, "dist_throttle", rclcpp::ParameterValue(0.1));
   double dist_throttle {0.0};
@@ -95,7 +95,7 @@ void TrappedRecovery::initialize(
   nav2_util::declare_parameter_if_not_declared(
     node_, "period_of_pose_validity", rclcpp::ParameterValue(600));
   node_->get_parameter("period_of_pose_validity", period_of_pose_validity_);
-  
+
 
 
   historical_traj_.clear();
@@ -343,6 +343,10 @@ double TrappedRecovery::scoreFootprint(std::vector<geometry_msgs::msg::Point> or
     line_cost = lineCost(x0, x1, y0, y1);
 
     if (line_cost == -1) {
+      double w_x0, w_y0, w_x1, w_y1;
+      controller_costmap_->getCostmap()->mapToWorld(x0, y0, w_x0, w_y0);
+      controller_costmap_->getCostmap()->mapToWorld(x1, y1, w_x1, w_y1);
+      RCLCPP_ERROR(logger_, "illegal (%f, %f) (%f, %f)", w_x0, w_y0, w_x1, w_y1);
       return line_cost;  // -1 for LETHAL_OBSTACLE
     }
     footprint_cost = std::max(line_cost, footprint_cost);
@@ -583,6 +587,10 @@ bool TrappedRecovery::ultrasonicFrontFree()
   return true;
 }
 
+bool TrappedRecovery::getCurrentUltrasonicRange() {
+   return last_ultrasonic_range_.range;
+}
+
 bool TrappedRecovery::isUltrasonicCurrent()
 {
   rclcpp::Time now = clock_->now();
@@ -638,9 +646,9 @@ double trajLength(const std::deque<geometry_msgs::msg::PoseStamped> &traj){
 
   while (historical_traj_.size() > 1)
   {
-    double l0 = hypot(pose_based_on_odom.pose.position.x - historical_traj_[0].pose.position.x, 
+    double l0 = hypot(pose_based_on_odom.pose.position.x - historical_traj_[0].pose.position.x,
                       pose_based_on_odom.pose.position.y - historical_traj_[0].pose.position.y);
-    double l1 = hypot(pose_based_on_odom.pose.position.x - historical_traj_[1].pose.position.x, 
+    double l1 = hypot(pose_based_on_odom.pose.position.x - historical_traj_[1].pose.position.x,
                       pose_based_on_odom.pose.position.y - historical_traj_[1].pose.position.y);
     if(l0 >= l1){
       historical_traj_.pop_front();
@@ -691,8 +699,8 @@ void TrappedRecovery::timerForPoseRecorderCallback()
 
   //push pose when robot has moved a little.
   const geometry_msgs::msg::PoseStamped &latest_odom_pose = historical_traj_.front();
-  if(poseDistanceSq(latest_odom_pose.pose, pose_based_on_odom.pose) < dist_sq_throttle_ &&             
-     angles::shortest_angular_distance(tf2::getYaw(latest_odom_pose.pose.orientation), 
+  if(poseDistanceSq(latest_odom_pose.pose, pose_based_on_odom.pose) < dist_sq_throttle_ &&
+     angles::shortest_angular_distance(tf2::getYaw(latest_odom_pose.pose.orientation),
                                        tf2::getYaw(pose_based_on_odom.pose.orientation)) < theta_throttle_){
     return;
   }else{
@@ -705,7 +713,7 @@ void TrappedRecovery::timerForPoseRecorderCallback()
   {
     historical_traj_.pop_back();
   }
- 
+
   //truncat redundant poses when the totle length is overflow.
   while(trajLength(historical_traj_) > max_effective_dist_){
     historical_traj_.pop_back();
@@ -715,5 +723,3 @@ void TrappedRecovery::timerForPoseRecorderCallback()
 }
 
 }  // namespace move_base
-
-

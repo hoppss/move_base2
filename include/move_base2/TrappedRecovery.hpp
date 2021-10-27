@@ -97,6 +97,7 @@ public:
   // ultrasonic, false is collision
   bool collisionFreeCheck(const nav_msgs::msg::Path & path, double & sum_dist);
   bool ultrasonicFrontFree();
+  bool getCurrentUltrasonicRange();
   //start to record poses after back up recovery
   void recorder_start(){timer_->reset();}
   //stop to record poses before back up recovery

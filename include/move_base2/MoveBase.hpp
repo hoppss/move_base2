@@ -25,6 +25,7 @@
 #include <condition_variable>
 #include <queue>
 #include <atomic>
+#include <algorithm>
 
 #include "rclcpp/rclcpp.hpp"
 
