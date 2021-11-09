@@ -972,6 +972,31 @@ void MoveBase::handleService(
 
   // idle status
   if (state_ == NavState::READY) {
+
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+
+      std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(
+        *(global_costmap_ros_->getCostmap()->getMutex()));
+      global_costmap_ros_->resetLayers();
+      global_costmap_ros_->updateMap();
+
+      auto end = std::chrono::high_resolution_clock::now();
+      std::cerr << "reset global costmap, used " <<
+          std::chrono::duration<double>(end - start).count() << std::endl;
+    }
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+
+      std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(
+        *(controller_costmap_ros_->getCostmap()->getMutex()));
+      controller_costmap_ros_->resetLayers();
+      controller_costmap_ros_->updateMap();
+
+      auto end = std::chrono::high_resolution_clock::now();
+      std::cerr << "reset local costmap, used " <<
+          std::chrono::duration<double>(end - start).count() << std::endl;
+    }
     state_ = PLANNING;
 
     progress_checker_->reset();
