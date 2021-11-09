@@ -104,6 +104,8 @@ MoveBase::MoveBase()
   // collisionfree check
   point_cost_ = std::make_shared<move_base::PointCost>();
   trapped_recovery_ = std::make_shared<move_base::TrappedRecovery>();
+
+  clear_costmap_ = std::make_shared<move_base::ClearCostmapRecovery>();
   base_controller_ = std::make_shared<move_base::BaseController>();
   // basecontroller rotate
 
@@ -233,34 +235,25 @@ void MoveBase::loop()
                   "no_valid_path_exit_navigation");
               }
             } else if (recovery_timediff > planner_patience_ && is_trapped) {
-              RCLCPP_INFO(
-                get_logger(), "goto backup recovery, cnt %d, trapped %d", recovery_cnt,
-                static_cast<int>(is_trapped));
-              // 1. first goto backup/front recovery
-              bool had_forward = true;
+              // 陷入障碍物
               bool had_backup = true;
-              auto it0 = std::find(recoverys_.name_.begin(), recoverys_.name_.end(), "forward");
-              if (it0 == recoverys_.name_.end()) {had_forward = false;}
 
               auto it1 = std::find(recoverys_.name_.begin(), recoverys_.name_.end(), "backup");
               if (it1 == recoverys_.name_.end()) {had_backup = false;}
 
               RCLCPP_INFO(
-                get_logger(), "goto backup recovery, cnt %d, trapped %d, forward %d, backward %d", recovery_cnt,
-                static_cast<int>(is_trapped), static_cast<int>(had_forward), static_cast<int>(had_backup));
+                get_logger(), "recovery %d,  trapped %d, had backward %d， goto backup",
+                recovery_cnt, static_cast<int>(is_trapped), static_cast<int>(had_backup));
 
-              if (trapped_recovery_->isUltrasonicCurrent() &&
-                trapped_recovery_->getCurrentUltrasonicRange() > 1.1 && !had_forward)
-              {
-                state_ = NavState::FORWARDRECOVERY;
-                recoverys_.update("forward");
-              } else if (!had_backup) {
+              // 只后退一次， 如果后退过了还是陷入障碍物状态，就退出导航任务
+              if (!had_backup) {
                 state_ = NavState::BACKUPRECOVERY;
                 recoverys_.update("backup");
               } else {
                 RCLCPP_INFO(
                   get_logger(),
-                  "recovery failed, trapped in obstacle after forward and backup, cancel task");
+                  "backup recovery failed, trapped in obstacle after backup, cancel task");
+
                 std::unique_lock<std::mutex> lock(planner_mutex_);
                 resetState();
                 lock.unlock();
@@ -271,17 +264,38 @@ void MoveBase::loop()
               }
 
 
-            } else if (recovery_timediff > planner_patience_) {
-              // goto spin recovery
-              RCLCPP_INFO(
-                get_logger(), "goto backup recovery, cnt %d, trapped %f", recovery_cnt,
-                static_cast<int>(is_trapped));
-              state_ = NavState::SPINRECOVERY;
-              recoverys_.update("spin");
+            } else if (recovery_timediff > planner_patience_ && !is_trapped &&
+              recoverys_.cnt_ <= 4)
+            {
+              // no-path and footprint free
+              // goto spin recovery or clear
+
+
+              if (recoverys_.cnt_ == 0 || recoverys_.name_.back() == "backup") {
+                RCLCPP_INFO(
+                  get_logger(), "recovery： %d, trapped %f, goto spin", recovery_cnt,
+                  static_cast<int>(is_trapped));
+
+                state_ = NavState::SPINRECOVERY;
+                recoverys_.update("spin");
+              } else {
+                RCLCPP_INFO(
+                  get_logger(), "recovery： %d, trapped %f, goto clear", recovery_cnt,
+                  static_cast<int>(is_trapped));
+                state_ = NavState::CLEARRECOVERY;
+                recoverys_.update("clear");
+              }
+
+            } else if (recovery_timediff > planner_patience_ && !is_trapped &&
+              recoverys_.cnt_ > 4)
+            {
+              std::this_thread::sleep_for(std::chrono::seconds(5));
+              state_ = NavState::WAITING;
+              recoverys_.update("wait");
             } else {
               RCLCPP_INFO(
-                get_logger(), "== plan_timeout %f, recovery timeout %f", time_used,
-                recovery_timediff);
+                get_logger(), "== plan_timeout %f, recovery timeout %f， recovery cnt %d", time_used,
+                recovery_timediff, recoverys_.cnt_);
             }
 
           }
@@ -529,7 +543,7 @@ void MoveBase::loop()
 
       case FORWARDRECOVERY: {
 
-        RCLCPP_INFO(get_logger(), "BACKUPRECOVERY");
+          RCLCPP_INFO(get_logger(), "BACKUPRECOVERY");
           int i = 0;
           while (i++ < 80 && trapped_recovery_->getCurrentUltrasonicRange() > 0.3) {
             geometry_msgs::msg::TwistStamped twist;
@@ -539,6 +553,17 @@ void MoveBase::loop()
           }
           last_recovery_time_ = now();
           state_ = NavState::PLANNING;
+        } break;
+
+      case CLEARRECOVERY: {
+
+          clear_costmap_->clearExceptRegion(true, 1.0);
+          clear_costmap_->clearExceptRegion(false, 1.0);
+
+          last_recovery_time_ = now();
+          state_ = NavState::SPINRECOVERY;
+          recoverys_.update("spin");
+
         } break;
 
       default:
@@ -752,6 +777,8 @@ nav2_util::CallbackReturn MoveBase::on_configure(const rclcpp_lifecycle::State &
     trapped_recovery_);
 
   reporter_->initialize(shared_from_this());
+
+  clear_costmap_->initialize(shared_from_this());  // clear costmap
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -1188,6 +1215,7 @@ void MoveBase::computeControl()
       // lock.unlock();
 
       state_ = NavState::BACKUPRECOVERY;  // 局部陷入障碍物，后退一下
+      recoverys_.update("backup");
     } else {
       state_ = NavState::WAITING;
     }

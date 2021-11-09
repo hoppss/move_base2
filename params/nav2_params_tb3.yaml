@@ -61,11 +61,12 @@ move_base_node:
       weight_inflation: 10.
       weight_acc_lim_x: 1.
       weight_acc_lim_theta: 10.
-      control_look_ahead_poses: 2
+      weight_viapoint: 100.
+      control_look_ahead_poses: 1
       obstacle_association_force_inclusion_factor: 2.0
       force_reinit_new_goal_dist: 0.3
       force_reinit_new_goal_angular: 0.3
-      global_plan_viapoint_sep: 0.5
+      global_plan_viapoint_sep: 0.3
       feasibility_check_no_poses: 10
 
 
@@ -96,13 +97,11 @@ local_costmap:
       resolution: 0.05
       robot_radius: 0.15
       #footprint: "[[0.36, 0.18], [0.36, -0.18], [-0.415, -0.18], [-0.415, 0.18]]"
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
+      plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
+        inf_is_valid: True
         observation_sources: scan
         scan:
           topic: /scan
@@ -142,9 +141,11 @@ global_costmap:
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
+        map_topic: /map
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
+        inf_is_valid: True
         observation_sources: scan
         scan:
           topic: /scan

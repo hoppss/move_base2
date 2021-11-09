@@ -96,7 +96,7 @@ include_directories(include)
 # )
 
 ## node
-add_executable(move_base_node src/main.cpp  src/MoveBase.cpp src/PointCost.cpp src/BaseController.cpp src/Reporter.cpp src/TrappedRecovery.cpp)
+add_executable(move_base_node src/main.cpp  src/MoveBase.cpp src/PointCost.cpp src/BaseController.cpp src/Reporter.cpp src/TrappedRecovery.cpp src/ClearCostmapRecovery.cpp)
 target_include_directories(move_base_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

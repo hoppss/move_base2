@@ -75,6 +75,7 @@
 #include "move_base2/BaseController.hpp"
 #include "move_base2/Reporter.hpp"
 #include "move_base2/TrappedRecovery.hpp"
+#include "move_base2/ClearCostmapRecovery.hpp"
 
 namespace move_base
 {
@@ -304,8 +305,11 @@ private:
   // status_reporter
   std::shared_ptr<Reporter> reporter_;
 
-  // recovery
+  // recovery sta
   RecoveryRecord  recoverys_;
+
+  // clear recovery
+  ClearCostmapRecovery::SharedPtr clear_costmap_;
 };
 
 }  // namespace move_base
