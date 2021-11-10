@@ -975,7 +975,7 @@ void MoveBase::handleService(
 
       auto end = std::chrono::high_resolution_clock::now();
       std::cerr << "reset global costmap, used " <<
-          std::chrono::duration<double>(end - start).count() << std::endl;
+        std::chrono::duration<double>(end - start).count() << std::endl;
     }
     {
       auto start = std::chrono::high_resolution_clock::now();
@@ -987,16 +987,16 @@ void MoveBase::handleService(
 
       auto end = std::chrono::high_resolution_clock::now();
       std::cerr << "reset local costmap, used " <<
-          std::chrono::duration<double>(end - start).count() << std::endl;
+        std::chrono::duration<double>(end - start).count() << std::endl;
     }
 
-      // forbid nav to illegal position
-  if (!point_cost_->isValidPose(req.goal, false)) {
-    RCLCPP_WARN(get_logger(), "NaviTo: pose nav to is illegal");
-    response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
-    response->description = "illegal pose, the pose is in lethal/inscribed_inflated/unknown cell";
-    return;
-  }
+    // forbid nav to illegal position
+    if (!point_cost_->isValidPose(req.goal, false)) {
+      RCLCPP_WARN(get_logger(), "NaviTo: pose nav to is illegal");
+      response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
+      response->description = "illegal pose, the pose is in lethal/inscribed_inflated/unknown cell";
+      return;
+    }
     state_ = PLANNING;
 
     progress_checker_->reset();
