@@ -943,14 +943,6 @@ void MoveBase::handleService(
     return;
   }
 
-  // forbid nav to illegal position
-  if (!point_cost_->isValidPose(req.goal, false)) {
-    RCLCPP_WARN(get_logger(), "NaviTo: pose nav to is illegal");
-    response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
-    response->description = "illegal pose, the pose is in lethal/inscribed_inflated/unknown cell";
-    return;
-  }
-
   std::string c_name = request->controller_id;
   std::string current_controller;
   if (findControllerId(c_name, current_controller)) {
@@ -997,6 +989,14 @@ void MoveBase::handleService(
       std::cerr << "reset local costmap, used " <<
           std::chrono::duration<double>(end - start).count() << std::endl;
     }
+
+      // forbid nav to illegal position
+  if (!point_cost_->isValidPose(req.goal, false)) {
+    RCLCPP_WARN(get_logger(), "NaviTo: pose nav to is illegal");
+    response->result = automation_msgs::srv::NavigateToPose::Response::FAILTURE;
+    response->description = "illegal pose, the pose is in lethal/inscribed_inflated/unknown cell";
+    return;
+  }
     state_ = PLANNING;
 
     progress_checker_->reset();
