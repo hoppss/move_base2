@@ -62,12 +62,12 @@ move_base_node:
       weight_acc_lim_x: 1.
       weight_acc_lim_theta: 10.
       weight_viapoint: 100.
-      control_look_ahead_poses: 1
+      control_look_ahead_poses: 2
       obstacle_association_force_inclusion_factor: 2.0
       force_reinit_new_goal_dist: 0.3
       force_reinit_new_goal_angular: 0.3
-      global_plan_viapoint_sep: 0.3
-      feasibility_check_no_poses: 8
+      global_plan_viapoint_sep: 0.5
+      feasibility_check_no_poses: 10
 
 
     # Progress checker parameters
@@ -78,8 +78,8 @@ move_base_node:
     # Goal checker parameters
     simple_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.3
-      yaw_goal_tolerance: 0.2
+      xy_goal_tolerance: 0.5
+      yaw_goal_tolerance: 0.5
       stateful: True
 
 local_costmap:
@@ -87,7 +87,7 @@ local_costmap:
     ros__parameters:
       update_frequency: 10.0
       publish_frequency: 1.0
-      transform_tolerance: .0
+      transform_tolerance: 1.0
       global_frame: odom
       robot_base_frame: base_link
       use_sim_time: True
@@ -97,11 +97,7 @@ local_costmap:
       resolution: 0.05
       #robot_radius: 0.25
       footprint: "[[0.36, 0.18], [0.36, -0.18], [-0.415, -0.18], [-0.415, 0.18]]"
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
-        map_topic: /map
+      plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
@@ -112,6 +108,7 @@ local_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
+          inf_is_valid: True
           raytrace_max_range: 3.0
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
@@ -128,7 +125,7 @@ global_costmap:
     ros__parameters:
       update_frequency: 10.0
       publish_frequency: 1.0
-      transform_tolerance: .0
+      transform_tolerance: 1.0
       global_frame: map
       robot_base_frame: base_link
       use_sim_time: True
@@ -141,7 +138,7 @@ global_costmap:
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
-        map_topic: /map
+        map_topic: /static_map
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
@@ -152,6 +149,7 @@ global_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
+          inf_is_valid: True
           raytrace_max_range: 3.0
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
@@ -161,3 +159,4 @@ global_costmap:
         cost_scaling_factor: 5.0
         inflation_radius: 0.6
         inflate_unknown: false
+      always_send_full_costmap: True

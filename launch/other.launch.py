@@ -71,27 +71,14 @@ def generate_launch_description():
             description='Full path to the ROS2 parameters file to use'),
 
         DeclareLaunchArgument(
-            'map_subscribe_transient_local', default_value='True',
+            'map_subscribe_transient_local', default_value='false',
             description='Whether to set the map subscriber QoS to transient local'),
-
-        Node(
-            package='move_base2',
-            executable='move_base_node',
-            output='screen',
-            parameters=[configured_params],
-            namespace=namespace),
-        # Node(
-        #     package='move_base2',
-        #     executable='receive_goal_to_mb',
-        #     name='receive_goal_to_mb',
-        #     output='screen',
-        #     namespace=namespace),
 
         Node(
             package='auto_charge',
             executable='auto_charge_node',
             output='screen',
-            #parameters=[configured_params],
+            parameters=[configured_params],
             namespace=namespace),
 
         Node(
@@ -102,7 +89,7 @@ def generate_launch_description():
             parameters=[{'scan_time': 0.067},
                         {'range_min': 0.3},
                         {'range_max': 3.5},
-                        {'scan_height': 20}],
+                        {'scan_height': 10}],
                         #{'output_frame': 'camera_link'}],
             remappings=[('depth', '/mi1046469/camera/depth/image_rect_raw'),
                         ('depth_camera_info', '/mi1046469/camera/depth/camera_info')]),
