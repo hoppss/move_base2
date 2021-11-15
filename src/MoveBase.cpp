@@ -997,20 +997,26 @@ void MoveBase::handleService(
       response->description = "illegal pose, the pose is in lethal/inscribed_inflated/unknown cell";
       return;
     }
-    state_ = PLANNING;
 
     progress_checker_->reset();
+    goal_checker_->reset();
+
+    state_ = PLANNING;
+
     // publishZeroVelocity();
   } else if (state_ == NavState::CONTROLLING) {
     // receive new goal ???
     // state_ = PLANNING;
 
     progress_checker_->reset();
+    goal_checker_->reset();
     // publishZeroVelocity();
   } else if (state_ == NavState::STOPPING) {
     progress_checker_->reset();
+    goal_checker_->reset();
   } else if (state_ == NavState::WAITING) {
     progress_checker_->reset();
+    goal_checker_->reset();
   } else {
   }
 
@@ -1126,16 +1132,16 @@ void MoveBase::computeControl()
       auto end_pose = temp_path.poses.back();
       end_pose.header.frame_id = temp_path.header.frame_id;
       end_pose.header.stamp = rclcpp::Time();
-      rclcpp::Duration tolerance(
-        rclcpp::Duration::from_seconds(controller_costmap_ros_->getTransformTolerance()));
-      nav_2d_utils::transformPose(
-        tf_, controller_costmap_ros_->getGlobalFrameID(), end_pose,
-        end_pose, tolerance);
+      // rclcpp::Duration tolerance(
+      //   rclcpp::Duration::from_seconds(controller_costmap_ros_->getTransformTolerance()));
+      // nav_2d_utils::transformPose(
+      //   tf_, controller_costmap_ros_->getGlobalFrameID(), end_pose,
+      //   end_pose, tolerance);
       goal_checker_->reset();
 
-      RCLCPP_INFO(
-        get_logger(), "Path end point is (%.2f, %.2f)", end_pose.pose.position.x,
-        end_pose.pose.position.y);
+      // RCLCPP_INFO(
+      //   get_logger(), "Path end point is (%.2f, %.2f)", end_pose.pose.position.x,
+      //   end_pose.pose.position.y);
       end_pose_ = end_pose.pose;
     }
 
@@ -1319,9 +1325,12 @@ bool MoveBase::isGoalReached()
 {
   geometry_msgs::msg::PoseStamped pose;
 
-  if (!getRobotPose(pose)) {
-    return false;
-  }
+  // if (!getRobotPose(pose)) {
+  //   return false;
+  // }
+
+  if (!global_costmap_ros_->getRobotPose(pose)) {return false;}
+  // use goal in map frame to check, loop closure is dangerous
 
   geometry_msgs::msg::Twist twist = getThresholdedTwist(odom_sub_->getTwist());
   return goal_checker_->isGoalReached(pose.pose, end_pose_, twist);
