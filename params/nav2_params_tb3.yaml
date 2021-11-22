@@ -8,7 +8,7 @@ move_base_node:
       plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
       use_astar: false
-      allow_unknown: true
+      allow_unknown: false
 
     LNavfn:
       plugin: "lnavfn_planner/LNavfnPlanner"
@@ -145,6 +145,7 @@ global_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
+        combination_method: 3
         observation_sources: scan
         scan:
           topic: /scan

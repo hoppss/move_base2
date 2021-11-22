@@ -142,6 +142,7 @@ global_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
+        combination_method: 3
         observation_sources: scan
         scan:
           topic: /scan
