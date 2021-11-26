@@ -151,7 +151,7 @@ bool TrappedRecovery::isTrappedInPose(double x, double y, double yaw)
     RCLCPP_ERROR(logger_, "runRecovery, transform footprint failed - empty");
     return false;  // inner error, ignore
   } else {
-    RCLCPP_INFO(logger_, "oriented footprint size %d", oriented_footprint.size());
+    // RCLCPP_INFO(logger_, "oriented footprint size %d", oriented_footprint.size());
   }
 
   if (scoreFootprint(oriented_footprint) == -1) {

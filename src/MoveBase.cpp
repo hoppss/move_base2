@@ -327,11 +327,12 @@ void MoveBase::loop()
         break;
 
       case WAITING: {
+          RCLCPP_INFO(get_logger(), "WAITING...");
           publishZeroVelocity();
           std::this_thread::sleep_for(std::chrono::milliseconds(1000));
           std::unique_lock<std::mutex> lock(planner_mutex_);
           state_ = NavState::PLANNING;
-          last_valid_plan_time_ = now();
+          // last_valid_plan_time_ = now();
         }
         break;
 
@@ -1057,7 +1058,13 @@ nav_msgs::msg::Path MoveBase::getPlan(
         "Server will use only plugin %s in server."
         " This warning will appear once.",
         planner_ids_concat_.c_str());
-      return planners_[planners_.begin()->first]->createPlan(start, goal);
+      try {
+        nav_msgs::msg::Path path = planners_[planners_.begin()->first]->createPlan(start, goal);
+        return path;
+      } catch (nav2_core::PlannerException& ex) {
+        RCLCPP_ERROR(get_logger(), "planner %s exception %s", planners_.begin()->first.c_str(), ex.what());
+        return nav_msgs::msg::Path();
+      }
     } else {
       RCLCPP_ERROR(
         get_logger(),
@@ -1439,8 +1446,11 @@ void MoveBase::planThread()
             "no_valid_path_exit_navigation_continue_report");
           last_report_time = nowtime;
         }
+
       }
-      continue;
+
+      // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      // continue;
     } else {
       RCLCPP_INFO(
         get_logger(),

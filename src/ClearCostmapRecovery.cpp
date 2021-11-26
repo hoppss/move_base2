@@ -18,7 +18,7 @@ void ClearCostmapRecovery::initialize(const rclcpp_lifecycle::LifecycleNode::Sha
   global_except_client_ = node_->create_client<nav2_msgs::srv::ClearCostmapExceptRegion>(
     "global_costmap/clear_except_global_costmap");
   local_except_client_ = node_->create_client<nav2_msgs::srv::ClearCostmapExceptRegion>(
-    "local_costmap/clear_except_global_costmap");
+    "local_costmap/clear_except_local_costmap");
 }
 
 bool ClearCostmapRecovery::clearExceptRegion(bool is_global, double reset_distance)
