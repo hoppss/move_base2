@@ -1442,8 +1442,8 @@ void MoveBase::planThread()
           // continue to audio report
           reporter_->report(
             static_cast<int>(navi_mode_),
-            automation_msgs::msg::NavStatus::FAILED_NOPATH,
-            "no_valid_path_exit_navigation_continue_report");
+            automation_msgs::msg::NavStatus::OBSTACLE_REPLAN,
+            "obstacles-and-replan-no-path");
           last_report_time = nowtime;
         }
 
